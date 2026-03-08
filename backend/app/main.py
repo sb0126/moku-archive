@@ -61,10 +61,19 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 await asyncio.sleep(wait)
 
     if db_connected:
-        # Auto-create tables if they don't exist (idempotent)
-        async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
-        logger.info("✅ Database tables ensured")
+        # Auto-create tables if they don't exist (idempotent).
+        # Wrapped in try/except because PostgreSQL may already have
+        # types or tables that collide (e.g. UniqueViolationError on
+        # pg_type_typname_nsp_index).  In production use Alembic instead.
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(SQLModel.metadata.create_all)
+            logger.info("✅ Database tables ensured")
+        except Exception as exc:
+            logger.warning(
+                "⚠️ create_all partial failure (tables/types may already exist): %s",
+                exc,
+            )
     else:
         # Log but do NOT raise — let the app start so the health-check passes.
         logger.error(
