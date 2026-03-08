@@ -44,6 +44,7 @@ const en = {
   "dialog.confirmPassword": "Enter Password",
   "dialog.passwordDetail": "Please enter the password you set when creating this content.",
   "action.confirm": "Confirm",
+  "cookie.message": "We use cookies to enhance your browsing experience, serve personalized ads or content, and analyze our traffic. By clicking 'Accept All', you consent to our use of cookies.",
   "cookie.decline": "Decline",
   "cookie.accept": "Accept All",
   "boundary.title": "Oops, something went wrong",

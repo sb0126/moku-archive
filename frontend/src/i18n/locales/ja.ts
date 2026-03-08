@@ -44,6 +44,7 @@ const ja = {
   "dialog.confirmPassword": "パスワードの入力",
   "dialog.passwordDetail": "投稿時に設定したパスワードを入力してください。",
   "action.confirm": "確認",
+  "cookie.message": "当サイトでは、サービスの向上、パーソナライズされたコンテンツの表示、トラフィックの分析のためにクッキーを使用しています。「すべて同意する」をクリックすると、クッキーの使用に同意したものとみなされます。",
   "cookie.decline": "拒否する",
   "cookie.accept": "すべて同意する",
   "boundary.title": "ページを読み込めませんでした",

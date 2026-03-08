@@ -44,6 +44,7 @@ const ko = {
   "dialog.confirmPassword": "비밀번호 입력",
   "dialog.passwordDetail": "게시글 작성 시 설정한 비밀번호를 입력해주세요.",
   "action.confirm": "확인",
+  "cookie.message": "본 웹사이트는 사용자 경험 향상, 맞춤형 콘텐츠 제공 및 트래픽 분석을 위해 쿠키를 사용합니다. '모두 동의'를 클릭하시면 쿠키 사용에 동의하시게 됩니다.",
   "cookie.decline": "거부",
   "cookie.accept": "모두 동의",
   "boundary.title": "페이지를 불러올 수 없습니다",
