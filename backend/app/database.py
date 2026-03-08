@@ -9,7 +9,12 @@ Usage:
         ...
 """
 
+from __future__ import annotations
+
+import logging
+import re
 from collections.abc import AsyncGenerator
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -20,8 +25,49 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+_DEFAULT_PG_PORT = 5432
+
+
+def _sanitise_database_url(raw_url: str) -> str:
+    """Ensure the database URL has a valid port (default 5432) and log it masked."""
+    parsed = urlparse(raw_url)
+
+    # Fix missing or empty port
+    port = parsed.port
+    if port is None:
+        # urlparse returns None when port is absent or empty-string.
+        # Reconstruct netloc with default port.
+        # Also handle the edge-case where the raw URL contains ":<empty>/"
+        # e.g. "postgresql+asyncpg://user:pw@host:/db"
+        hostname = parsed.hostname or "localhost"
+        user_info = ""
+        if parsed.username:
+            pwd_part = f":{parsed.password}" if parsed.password else ""
+            user_info = f"{parsed.username}{pwd_part}@"
+        netloc = f"{user_info}{hostname}:{_DEFAULT_PG_PORT}"
+        parsed = parsed._replace(netloc=netloc)
+        logger.warning(
+            "DATABASE_URL had no port — defaulting to %d", _DEFAULT_PG_PORT
+        )
+
+    # Build a masked version for logging (hide password)
+    final_url: str = str(urlunparse(parsed))
+    safe_url = re.sub(
+        r"://([^:]+):([^@]+)@",
+        r"://\1:****@",
+        final_url,
+    )
+    logger.info("Database URL (masked): %s", safe_url)
+
+    return final_url
+
+
+_database_url = _sanitise_database_url(settings.database_url)
+
 engine: AsyncEngine = create_async_engine(
-    settings.database_url,
+    _database_url,
     echo=settings.debug,
     pool_pre_ping=True,
     pool_size=5,
