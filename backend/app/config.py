@@ -7,6 +7,9 @@ locally).  Import the singleton ``settings`` wherever config is needed:
     from app.config import settings
 """
 
+import json
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,11 +44,28 @@ class Settings(BaseSettings):
     naver_site_verification: str = ""
 
     # ── CORS ───────────────────────────────────────────────────
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "https://moku.com",
-        "https://www.moku.com",
-    ]
+    cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> list[str]:
+        """Accept JSON array, comma-separated string, or a single origin."""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return ["http://localhost:3000"]
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed]
+                except json.JSONDecodeError:
+                    pass
+            # Comma-separated fallback
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return ["http://localhost:3000"]
 
     # ── Server ─────────────────────────────────────────────────
     debug: bool = False
