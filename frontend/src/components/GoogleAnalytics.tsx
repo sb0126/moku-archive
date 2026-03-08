@@ -5,11 +5,13 @@ async function getGaId() {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/config`, { next: { revalidate: 3600 } });
     if (res.ok) {
       const data = await res.json();
-      return data.find((c: any) => c.key === "ga_measurement_id")?.value;
+      const val = data.find((c: any) => c.key === "ga_measurement_id")?.value;
+      if (val) return val;
     }
   } catch (e) {
-    return null;
+    // fallback
   }
+  return "G-Q0M3KVC4JW";
 }
 
 export async function GoogleAnalytics() {
