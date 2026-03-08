@@ -9,9 +9,9 @@ buildCommand = ""
 [deploy]
 startCommand = ""
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
 
 # Scale to 0 on free tier (set to 1+ on paid plans)
 # numReplicas = 1

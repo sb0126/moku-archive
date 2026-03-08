@@ -43,7 +43,7 @@ USER appuser
 EXPOSE 8000
 
 # Built-in health check (used by Railway/Fly.io)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
 
 # Use 2 workers for Railway free tier; tune via WEB_CONCURRENCY env var
