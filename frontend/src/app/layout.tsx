@@ -31,6 +31,10 @@ const mPlus1p = M_PLUS_1p({
 export const metadata: Metadata = {
   title: "Moku | 韓国ワーキングホリデーサポート",
   description: "ビザ申請から家探し、生活サポートまで",
+  robots: {
+    index: false,
+    follow: false,
+  },
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
