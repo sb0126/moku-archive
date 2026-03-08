@@ -43,7 +43,7 @@ export function FadeInSection({ children, className, delay = 0, direction = "up"
       visible: { 
         opacity: 1, 
         x: 0, y: 0, 
-        transition: { duration: 0.6, ease: "easeOut", delay: delay / 1000 } 
+        transition: { duration: 0.6, ease: "easeOut" as const, delay: delay / 1000 } 
       }
     };
   };
