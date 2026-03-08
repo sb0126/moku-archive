@@ -1,0 +1,17 @@
+# railway.toml — Railway deployment configuration
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+buildCommand = ""
+
+[deploy]
+startCommand = ""
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Scale to 0 on free tier (set to 1+ on paid plans)
+# numReplicas = 1

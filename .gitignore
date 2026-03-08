@@ -1,0 +1,27 @@
+# ── General ───────────────────────────────────────────────────
+.DS_Store
+.env
+.env.*
+**/.env.example
+!.env.test
+
+# ── Backend ───────────────────────────────────────────────────
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.ruff_cache/
+
+# ── Frontend ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp

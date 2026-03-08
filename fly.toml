@@ -1,0 +1,43 @@
+# fly.toml — Fly.io deployment configuration
+# https://fly.io/docs/reference/configuration/
+
+app = "moku-api"
+primary_region = "nrt"  # Tokyo region (closest to Japan/Korea users)
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true   # Scale to 0 on idle (save cost)
+  auto_start_machines = true
+  min_machines_running = 0    # Set to 1 on paid plan for warm start
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+[[http_service.checks]]
+  grace_period = "20s"
+  interval = "30s"
+  method = "GET"
+  path = "/api/health"
+  timeout = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[env]
+  WEB_CONCURRENCY = "2"
+  DEBUG = "false"
+
+# Secrets (set via `fly secrets set KEY=VALUE`):
+# DATABASE_URL
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+# JWT_SECRET_KEY
+# MOKU_ADMIN_PASSWORD
+# CORS_ORIGINS

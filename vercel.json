@@ -1,0 +1,27 @@
+{
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/.next",
+  "installCommand": "cd frontend && npm ci",
+  "framework": "nextjs",
+  "regions": ["hnd1"],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://api.moku.com",
+    "NEXT_PUBLIC_SITE_URL": "https://moku.com"
+  },
+  "headers": [
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml" },
+        { "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=3600" }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    }
+  ]
+}
