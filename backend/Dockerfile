@@ -13,7 +13,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Runtime stage ─────────────────────────────────────────────
@@ -36,7 +36,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Create non-root user for security
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
-COPY --chown=appuser:appgroup . .
+COPY --chown=appuser:appgroup backend/ .
 
 USER appuser
 
