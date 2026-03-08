@@ -44,7 +44,10 @@ class Settings(BaseSettings):
     naver_site_verification: str = ""
 
     # ── CORS ───────────────────────────────────────────────────
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "https://moku-archive-bt2u.vercel.app",
+    ]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
