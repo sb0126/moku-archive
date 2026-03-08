@@ -4,10 +4,6 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "regions": ["hnd1"],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://api.moku.com",
-    "NEXT_PUBLIC_SITE_URL": "https://moku.com"
-  },
   "headers": [
     {
       "source": "/sitemap.xml",
