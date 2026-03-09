@@ -68,8 +68,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 await asyncio.sleep(wait)
 
     if db_connected:
-        # Alembic migrations are now handled by Railway releaseCommand
-        # ("alembic upgrade head" runs before the container starts serving traffic)
+        # Create any missing tables (CREATE TABLE IF NOT EXISTS equivalent).
+        # This is safe to run on every startup — existing tables are never touched.
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(SQLModel.metadata.create_all)
+            logger.info("✅ Database schema up-to-date (create_all)")
+        except Exception as exc:
+            logger.warning("⚠️ Schema sync failed: %s", exc)
 
         # Cleanup expired JWT blacklist entries on startup
         try:
