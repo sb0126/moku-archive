@@ -49,6 +49,20 @@ export default function AdminPage() {
 
   const authHeaders = { "X-Admin-Token": token || "" };
 
+  const handleLogout = async () => {
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/api/admin/logout`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      setToken(null);
+    }
+  };
+
   const loadStats = useCallback(async () => {
     if (!token) return;
     try {
@@ -183,7 +197,12 @@ export default function AdminPage() {
   return (
     <div className="bg-[#FAFAF9] min-h-screen pt-20">
       <div className="container mx-auto p-6 max-w-6xl pb-16">
-        <h1 className="text-3xl font-bold mb-8 text-[#2C2825]">Admin Dashboard</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-[#2C2825]">Admin Dashboard</h1>
+          <Button variant="outline" onClick={handleLogout} className="border-[#2C2825]/20 text-[#2C2825] hover:bg-[#F5F3F0]">
+            Logout
+          </Button>
+        </div>
       
       <Tabs defaultValue="stats" className="w-full">
         <TabsList className="mb-6 grid grid-cols-4 md:w-fit auto-cols-auto auto-rows-auto">

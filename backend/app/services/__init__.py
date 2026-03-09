@@ -26,7 +26,7 @@ from app.services.spam import SpamCheckResult, check_spam
 #   etc.
 # storage imports are separate because `aioboto3` SDK may not be installed
 # in all environments. Import directly: from app.services.storage import ...
-# cache imports: from app.services.cache import ...
+# cache: no-op stubs (Redis removed), JWT blacklist uses PostgreSQL
 
 __all__ = [
     # auth

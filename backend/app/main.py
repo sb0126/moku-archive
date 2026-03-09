@@ -25,7 +25,6 @@ from app.models import *  # noqa: F401,F403  — register all table models with 
 from app.routers import admin, articles, comments, config, inquiries, posts
 from app.schemas.common import HealthResponse, ReadinessResponse
 from app.services import limiter
-from app.services.cache import close_redis, ping_redis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -115,6 +114,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 "⚠️ Alembic migration failed: %s — tables may already be up-to-date",
                 exc,
             )
+
+        # Cleanup expired JWT blacklist entries on startup
+        try:
+            from app.services.cache import cleanup_expired_tokens
+
+            cleaned = await cleanup_expired_tokens()
+            if cleaned:
+                logger.info("🧹 Cleaned up %d expired blacklist entries", cleaned)
+        except Exception as exc:
+            logger.debug("Blacklist cleanup skipped: %s", exc)
     else:
         # Log but do NOT raise — let the app start so the health-check passes.
         logger.error(
@@ -123,19 +132,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             _DB_CONNECT_RETRIES,
         )
 
-    # Redis connectivity check (non-fatal)
-    redis_ok = await ping_redis()
-    if redis_ok:
-        logger.info("✅ Redis connection verified")
-    else:
-        logger.warning(
-            "⚠️ Redis is not reachable — caching & JWT blacklisting will be disabled"
-        )
-
     yield  # ← app is running
 
-    # Shutdown: dispose engine + close Redis
-    await close_redis()
+    # Shutdown: dispose engine
     await engine.dispose()
     logger.info("Database engine disposed")
 

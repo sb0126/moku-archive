@@ -9,6 +9,7 @@ from app.models.post import (
     PostCategory,
     PostLike,
 )
+from app.models.token_blacklist import TokenBlacklist
 
 __all__: list[str] = [
     "Article",
@@ -19,4 +20,5 @@ __all__: list[str] = [
     "Post",
     "PostCategory",
     "PostLike",
+    "TokenBlacklist",
 ]
