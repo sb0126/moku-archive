@@ -10,6 +10,8 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,6 +30,47 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 _DB_CONNECT_RETRIES = 5
 _DB_CONNECT_BACKOFF_BASE = 2.0  # seconds
+
+
+def _run_alembic_upgrade() -> None:
+    """Run Alembic migrations to 'head' (synchronous, called once at startup).
+
+    Auto-detects pre-existing databases:
+      - If tables exist but alembic_version does NOT → stamp head (baseline)
+      - Otherwise → upgrade head (apply pending migrations)
+    """
+    import os
+
+    from sqlalchemy import create_engine, inspect, text as sa_text
+
+    ini_path = os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
+    alembic_cfg = AlembicConfig(ini_path)
+    alembic_cfg.set_main_option(
+        "script_location",
+        os.path.join(os.path.dirname(__file__), "..", "alembic"),
+    )
+
+    # Build a sync URL for the inspection check
+    sync_url = settings.database_url.replace(
+        "postgresql+asyncpg://", "postgresql://"
+    )
+    sync_engine = create_engine(sync_url)
+
+    try:
+        inspector = inspect(sync_engine)
+        existing_tables = set(inspector.get_table_names())
+        has_alembic = "alembic_version" in existing_tables
+        has_app_tables = bool(existing_tables & {"posts", "articles", "comments", "inquiries"})
+
+        if has_app_tables and not has_alembic:
+            # Pre-existing DB without Alembic tracking → stamp as baseline
+            logger.info("🔖 Existing DB detected without alembic_version — stamping head")
+            alembic_command.stamp(alembic_cfg, "head")
+        else:
+            # Normal path: apply any pending migrations
+            alembic_command.upgrade(alembic_cfg, "head")
+    finally:
+        sync_engine.dispose()
 
 
 # ── Lifespan ──────────────────────────────────────────────────
@@ -61,17 +104,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 await asyncio.sleep(wait)
 
     if db_connected:
-        # Auto-create tables if they don't exist (idempotent).
-        # Wrapped in try/except because PostgreSQL may already have
-        # types or tables that collide (e.g. UniqueViolationError on
-        # pg_type_typname_nsp_index).  In production use Alembic instead.
+        # Run Alembic migrations (replaces old create_all approach)
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(SQLModel.metadata.create_all)
-            logger.info("✅ Database tables ensured")
+            _run_alembic_upgrade()
+            logger.info("✅ Alembic migrations applied (head)")
         except Exception as exc:
             logger.warning(
-                "⚠️ create_all partial failure (tables/types may already exist): %s",
+                "⚠️ Alembic migration failed: %s — tables may already be up-to-date",
                 exc,
             )
     else:
