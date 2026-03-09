@@ -71,10 +71,8 @@ class Settings(BaseSettings):
         return ["http://localhost:3000"]
 
     # ── Sentry ─────────────────────────────────────────────────
-    sentry_dsn: str = ""  # Empty → Sentry disabled
-    sentry_environment: str = "development"
-    sentry_traces_sample_rate: float = 0.2  # 20% of requests traced
-    sentry_profiles_sample_rate: float = 0.1  # 10% of traced requests profiled
+    sentry_dsn: str = ""
+    environment: str = "development"
 
     # ── Server ─────────────────────────────────────────────────
     debug: bool = False
