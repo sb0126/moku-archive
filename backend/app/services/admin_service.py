@@ -1,7 +1,7 @@
 """Admin domain service — login, logout, stats, image management business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
-Stats are cached in Redis; logout blacklists the JWT.
+Stats are cached in the in-memory LRU cache; logout blacklists the JWT.
 """
 
 import logging

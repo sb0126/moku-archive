@@ -70,6 +70,12 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return ["http://localhost:3000"]
 
+    # ── Sentry ─────────────────────────────────────────────────
+    sentry_dsn: str = ""  # Empty → Sentry disabled
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.2  # 20% of requests traced
+    sentry_profiles_sample_rate: float = 0.1  # 10% of traced requests profiled
+
     # ── Server ─────────────────────────────────────────────────
     debug: bool = False
 

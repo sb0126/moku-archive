@@ -1,7 +1,7 @@
 """Article domain service — all article-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
-Caches article list and detail responses in Redis.
+Caches article list and detail responses in the in-memory LRU cache.
 """
 
 import logging

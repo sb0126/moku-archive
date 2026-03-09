@@ -1,7 +1,7 @@
 """Post domain service — all post-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
-List responses are cached in Redis; mutations invalidate caches.
+List responses are cached in the in-memory LRU cache; mutations invalidate caches.
 """
 
 import logging

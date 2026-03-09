@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -68,4 +69,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Sentry organisation & project slugs
+  org: process.env.SENTRY_ORG ?? "mokuarchive",
+  project: process.env.SENTRY_PROJECT ?? "javascript-nextjs",
+
+  // Source map upload auth token (set in Vercel env vars)
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Upload wider set of client source files for better stack traces
+  widenClientFileUpload: true,
+
+  // Create a proxy API route to bypass ad-blockers
+  tunnelRoute: "/monitoring",
+
+  // Suppress non-CI output
+  silent: !process.env.CI,
+});
+

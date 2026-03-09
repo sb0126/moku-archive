@@ -21,12 +21,17 @@ from sqlmodel import SQLModel
 
 from app.config import settings
 from app.database import engine
+from app.middleware import CacheHeaderMiddleware
 from app.models import *  # noqa: F401,F403  — register all table models with SQLModel metadata
 from app.routers import admin, articles, comments, config, inquiries, posts
 from app.schemas.common import HealthResponse, ReadinessResponse
+from app.sentry import init_sentry
 from app.services import limiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# ── Sentry (must run before FastAPI app is created) ───────────
+init_sentry()
 
 _DB_CONNECT_RETRIES = 5
 _DB_CONNECT_BACKOFF_BASE = 2.0  # seconds
@@ -163,6 +168,19 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
     )
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all for unhandled errors — log + forward to Sentry."""
+    import sentry_sdk  # type: ignore[import-untyped]
+
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    sentry_sdk.capture_exception(exc)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "内部サーバーエラーが発生しました。"},
+    )
+
+
 # ── CORS middleware ───────────────────────────────────────────
 # Restricted to allowed origins defined in settings (env var CORS_ORIGINS)
 app.add_middleware(
@@ -172,6 +190,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "X-Admin-Token"],
 )
+
+# ── Cache-Control headers ─────────────────────────────────────
+app.add_middleware(CacheHeaderMiddleware)
 
 
 # ── Routers ───────────────────────────────────────────────────
