@@ -4,11 +4,27 @@
 
 ### Rules
 
-1. **One file per aggregate** — `post.py` contains `Post` and `PostLike`
+1. **One file per aggregate** — `post.py` contains `Post`, `PostLike`, `PostCategory`, `ExperienceType`
 2. **No business methods** — Models are pure data containers
 3. **Use `ClassVar` for `__tablename__`** — Required for mypy strict
-4. **Use `timezone.utc`** — Never use `datetime.utcnow()` (deprecated)
+4. **Use `_utcnow()` factory** — Timezone-naive datetime for asyncpg 0.30+ compatibility
 5. **Explicit column types** — Use `sa_column=Column(...)` for precise control
+
+### The `_utcnow()` Pattern
+
+Every model file defines this helper for datetime defaults:
+
+```python
+from datetime import datetime, timezone
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now, then strip tzinfo for asyncpg 0.30+ compat."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+```
+
+**Why `replace(tzinfo=None)`?** asyncpg 0.30+ raises `DBAPIError` when passing timezone-aware
+datetimes to `TIMESTAMP WITHOUT TIME ZONE` columns. This pattern produces UTC times
+without the timezone info that causes the error.
 
 ### Correct Pattern
 
@@ -18,6 +34,10 @@ from typing import ClassVar, Optional
 
 from sqlalchemy import Column, Text, BigInteger
 from sqlmodel import SQLModel, Field
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Post(SQLModel, table=True):
@@ -37,14 +57,8 @@ class Post(SQLModel, table=True):
     pinned_at: Optional[datetime] = Field(default=None)
     experience: Optional[str] = Field(default=None)
     category: Optional[str] = Field(default=None)
-
-    # ✅ CORRECT — timezone-aware
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 ```
 
 ### Common Mistakes
@@ -53,9 +67,67 @@ class Post(SQLModel, table=True):
 # ❌ DEPRECATED — datetime.utcnow (naive datetime, deprecated Python 3.12)
 created_at: datetime = Field(default_factory=datetime.utcnow)
 
-# ✅ CORRECT — timezone-aware
+# ❌ CAUSES DBAPIError with asyncpg 0.30+ (timezone-aware → TZ-less column)
 created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# ✅ CORRECT — timezone-aware then strip tzinfo
+created_at: datetime = Field(default_factory=_utcnow)
 ```
+
+### Comment Model (with parent_id for Nested Replies)
+
+```python
+class Comment(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "comments"
+
+    id: str = Field(sa_column=Column(Text, primary_key=True))
+    post_id: str = Field(foreign_key="posts.id", nullable=False, index=True)
+    parent_id: str | None = Field(default=None, foreign_key="comments.id",
+                                   index=True, nullable=True)  # ← nested reply support
+    author: str = Field(sa_column=Column(Text, nullable=False))
+    content: str = Field(sa_column=Column(Text, nullable=False))
+    password: str = Field(sa_column=Column(Text, nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+```
+
+### Article Model (JSONB Locale Content)
+
+```python
+from sqlalchemy.dialects.postgresql import JSONB
+
+class Article(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "articles"
+
+    id: str = Field(sa_column=Column(Text, primary_key=True))  # slug-based
+    image_url: Optional[str] = Field(default=None)
+    date: Optional[str] = Field(default=None)
+    ja: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    ko: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+```
+
+### TokenBlacklist Model (PostgreSQL JWT Revocation)
+
+```python
+from sqlalchemy import Column, DateTime, String
+
+class TokenBlacklist(SQLModel, table=True):
+    __tablename__ = "token_blacklist"
+
+    jti: str = Field(sa_column=Column(String(64), primary_key=True))
+    expires_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, index=True),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+```
+
+**Note:** `TokenBlacklist` intentionally uses `DateTime(timezone=True)` because
+it stores JWT expiry timestamps that need timezone info for comparison.
 
 ### Enum Types
 
@@ -68,25 +140,66 @@ class PostCategory(str, Enum):
     QUESTION = "question"
     INFO = "info"
     CHAT = "chat"
+
+class ExperienceType(str, Enum):
+    EXPERIENCED = "experienced"
+    INEXPERIENCED = "inexperienced"
+
+class InquiryStatus(str, Enum):
+    PENDING = "pending"
+    CONTACTED = "contacted"
+    COMPLETED = "completed"
+```
+
+### `models/__init__.py` Re-exports
+
+```python
+from app.models.article import Article
+from app.models.comment import Comment
+from app.models.inquiry import Inquiry, InquiryStatus
+from app.models.post import ExperienceType, Post, PostCategory, PostLike
+from app.models.token_blacklist import TokenBlacklist
+
+__all__ = [
+    "Article", "Comment", "ExperienceType", "Inquiry",
+    "InquiryStatus", "Post", "PostCategory", "PostLike", "TokenBlacklist",
+]
 ```
 
 ---
 
 ## Pydantic Schemas
 
+### CamelModel Base (Auto camelCase Serialization)
+
+All response schemas inherit from `CamelModel` for automatic `snake_case → camelCase` JSON:
+
+```python
+from pydantic import BaseModel
+from pydantic.alias_generators import to_camel
+
+class CamelModel(BaseModel):
+    """Base model that serialises fields as camelCase JSON."""
+
+    model_config = {
+        "alias_generator": to_camel,
+        "populate_by_name": True,  # also accept snake_case in tests
+    }
+```
+
 ### Rules
 
 1. **Separate schemas for Create/Update/Response** — Never reuse request as response
 2. **Use `Field()` constraints** — min_length, max_length, ge, le, regex
-3. **Use `BaseModel`, not `SQLModel`** — Schemas must not be table models
-4. **Explicit `model_config`** for alias support
+3. **Use `BaseModel` for requests** — Not `SQLModel` or `CamelModel`
+4. **Use `CamelModel` for responses** — Automatic camelCase serialization
+5. **Explicit `model_config`** for alias support
 
-### Request Schemas
+### Request Schemas (BaseModel)
 
 ```python
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
-
 
 class PostCreate(BaseModel):
     """Request body for creating a post."""
@@ -105,34 +218,39 @@ class PostUpdate(BaseModel):
     password: str = Field(min_length=4, max_length=50)
 ```
 
-### Response Schemas
+### Response Schemas (CamelModel)
 
 ```python
-class PostResponse(BaseModel):
-    """Single post in API responses."""
+from app.schemas.common import CamelModel
+
+class PostResponse(CamelModel):
+    """Single post in API responses — auto camelCase output."""
     id: str
     numeric_id: int
     title: str
     author: str
     content: str
     views: int
-    comments: int
+    comments: int          # ← snake_case field → serialized as "comments"
     pinned: bool
     pinned_at: datetime | None
     experience: str | None
     category: str | None
-    created_at: datetime
+    like_count: int = 0    # ← serialized as "likeCount"
+    created_at: datetime   # ← serialized as "createdAt"
     updated_at: datetime
 
 
-class PostCreateResponse(BaseModel):
+class PostCreateResponse(CamelModel):
     """Response after creating a post."""
     success: bool = True
     message: str
     post: PostResponse
 ```
 
-### Alias Support (camelCase ↔ snake_case)
+### Alias Support (Frontend → Backend)
+
+For request schemas that need to accept both camelCase and snake_case:
 
 ```python
 class LikeToggleRequest(BaseModel):
@@ -140,16 +258,21 @@ class LikeToggleRequest(BaseModel):
     model_config = {"populate_by_name": True}
 ```
 
-### `__init__.py` Re-exports
+### `schemas/__init__.py` Re-exports
 
 Always re-export all schemas for clean imports:
 
 ```python
 # schemas/__init__.py
+from app.schemas.common import CamelModel, SuccessResponse, ErrorResponse, ...
 from app.schemas.post import PostCreate, PostResponse, PostListResponse, ...
 from app.schemas.comment import CommentCreate, CommentResponse, ...
+from app.schemas.inquiry import InquiryCreate, InquiryResponse, ...
+from app.schemas.article import ArticleCreate, ArticleResponse, ...
+from app.schemas.admin import AdminLoginRequest, AdminLoginResponse, ...
+from app.schemas.config import SiteConfigResponse, VerificationConfig
 
-__all__ = ["PostCreate", "PostResponse", ...]
+__all__ = ["CamelModel", "PostCreate", "PostResponse", ...]
 ```
 
 ---
@@ -187,4 +310,20 @@ __all__ = ["PostCreate", "PostResponse", ...]
    # ✅
    def generate_id() -> str:
        return f"post_{int(time.time() * 1000)}"
+   ```
+
+4. **mypy.ini third-party ignores**:
+   ```ini
+   [mypy]
+   plugins = sqlalchemy.ext.mypy.plugin
+   strict = True
+
+   [mypy-aioboto3.*]
+   ignore_missing_imports = True
+   [mypy-jose.*]
+   ignore_missing_imports = True
+   [mypy-slowapi.*]
+   ignore_missing_imports = True
+   [mypy-passlib.*]
+   ignore_missing_imports = True
    ```

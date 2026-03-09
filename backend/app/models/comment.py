@@ -19,6 +19,7 @@ class Comment(SQLModel, table=True):
 
     id: str = Field(sa_column=Column(Text, primary_key=True))
     post_id: str = Field(foreign_key="posts.id", nullable=False, index=True)
+    parent_id: str | None = Field(default=None, foreign_key="comments.id", index=True, nullable=True)
     author: str = Field(sa_column=Column(Text, nullable=False))
     content: str = Field(sa_column=Column(Text, nullable=False))
     password: str = Field(sa_column=Column(Text, nullable=False))

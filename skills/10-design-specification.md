@@ -8,6 +8,8 @@ letusibiza.com에서 영감을 받은 미니멀하고 따뜻한 에이전시 스
 
 ## 1. 색상 팔레트 (CSS Variables)
 
+Tailwind CSS v4를 사용하여 `frontend/src/styles/globals.css` 내 `@theme` 지시어로 선언되어 있습니다 (`tailwind.config.ts` 미사용).
+
 ```css
 :root {
   /* ── Core ── */
@@ -18,9 +20,15 @@ letusibiza.com에서 영감을 받은 미니멀하고 따뜻한 에이전시 스
   --accent-text: #8A6420;           /* WCAG AA 접근성 골드 (링크, 활성 텍스트) */
   --logo-gold: #9E7030;             /* 로고 + 히어로 타이틀 강조 색상 */
 
-  /* ── Surfaces ── */
+  /* ── Surfaces & shadcn/ui ── */
   --card: #FFFFFF;                  /* 카드 배경 */
   --secondary: #F5F3F0;            /* 소프트 베이지 (아이콘 배경, 호버, 부가 영역) */
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2825;
+  --muted: #F5F3F0;
+  --muted-foreground: #6B6660;
+  --accent: #F5F3F0;
+  --accent-foreground: #2C2825;
   --footer-bg: #2C2825;            /* 푸터 배경 (다크 브라운) */
   --footer-text: #E8E5E1;          /* 푸터 텍스트 */
 
@@ -28,15 +36,14 @@ letusibiza.com에서 영감을 받은 미니멀하고 따뜻한 에이전시 스
   --text-body: #6B6660;            /* 본문 설명 텍스트 */
   --text-secondary: #5C5652;       /* 뮤트 텍스트 (WCAG AA) */
 
-  /* ── Borders ── */
+  /* ── Borders & Utilities ── */
   --border: rgba(44, 40, 37, 0.08);  /* 매우 연한 보더 */
   --border-medium: rgba(44, 40, 37, 0.10); /* 인풋 보더 */
   --border-hover: rgba(44, 40, 37, 0.30);
   --border-gold: rgba(184, 147, 95, 0.20); /* 골드 보더 */
   --border-gold-light: rgba(184, 147, 95, 0.10); /* 푸터 구분선 */
-
-  /* ── Destructive ── */
   --destructive: #C62828;
+  --ring: #B8935F;                 /* 포커스 링 */
 
   /* ── Radius ── */
   --radius: 0.5rem;                /* 기본 */
@@ -71,6 +78,8 @@ h4: font-weight 600, line-height 1.6
 p:  font-weight 400, line-height 1.8
 label: font-weight 500, line-height 1.6
 button: font-weight 600, line-height 1.5
+input: font-weight 400
+*:focus-visible: outline: none, box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent)
 ```
 
 ### 실제 사용 패턴
@@ -138,42 +147,40 @@ Footer:       bg-[#2C2825]
 
 ### 4.1 Header
 ```
-- fixed top-0, z-50
-- 스크롤 전: bg-transparent
+- fixed top-0 left-0 right-0, z-50 transition-all duration-300
+- 스크롤 전: bg-transparent, 컨테이너에 lg:-translate-y-1.5로 위치 보정
 - 스크롤 후 (>20px): bg-white/90 backdrop-blur-md shadow-sm border-b border-[#2C2825]/5
 - 높이: h-16 lg:h-20
 - 로고: "MOKU" text-xl lg:text-2xl font-bold text-[#9E7030] tracking-tight
-- 네비 링크: hidden lg:flex gap-8
-  - text-sm font-medium text-[#2C2825]/70 hover:text-[#8A6420]
-  - 활성: text-[#8A6420]
-- CTA 버튼: bg-[#B8935F] hover:bg-[#A38568] text-white rounded-full px-6 text-sm
-- 모바일: 햄버거 → 풀스크린 오버레이 (bg-white/95 backdrop-blur-md)
-  - 메뉴 아이템: py-3 px-4 text-lg font-medium rounded-xl
-  - 활성: text-[#8A6420] bg-[#B8935F]/5
+- 네비 링크 (데스크톱): hidden lg:flex items-center justify-center gap-5 xl:gap-8
+  - text-sm font-medium transition-colors hover:text-[#8A6420]
+  - 활성: text-[#8A6420], 비활성: text-[#2C2825]/70
+- CTA 버튼: bg-[#B8935F] hover:bg-[#A38568] text-white rounded-full px-6 border-0 shrink-0
+- 모바일: 햄버거 → 풀스크린 오버레이 (bg-white/95 backdrop-blur-md z-[40])
+  - 메뉴 아이템: py-3 px-4 text-lg font-medium rounded-xl transition-colors hover:bg-black/5
+  - 활성: bg-black/5 text-[#8A6420]
 ```
 
 ### 4.2 Hero
 ```
-- 풀스크린 이미지 배경: bg-[#2C2825]
+- 풀스크린 이미지 배경: relative min-h-[100dvh] pt-24 pb-24 lg:pt-32 lg:pb-36 bg-[#2C2825]
 - 배경 이미지:
-  - object-cover opacity-90
-  - filter brightness-95 contrast-105 saturate-[0.85] mix-blend-overlay
-  - 한국 궁궐 풍경 등 따뜻한 감성의 Unsplash 이미지
+  - object-cover opacity-90 object-center mix-blend-overlay
+  - filter brightness-95 contrast-105 saturate-[0.85]
 - 다크 오버레이:
   - bg-gradient-to-b from-[#2C2825]/60 via-[#2C2825]/40 to-[#2C2825]/90
   - 텍스트 가독성 확보용
 - 중앙 정렬 컨텐츠 (max-w-4xl mx-auto flex flex-col items-center text-center)
-  - Badge: bg-white/10 backdrop-blur-md text-[#F5F3F0] border-white/20 rounded-full px-5 py-2
-  - 타이틀: text-[64px] font-bold text-white + 두번째 줄 text-[#D1B075] drop-shadow-md
-  - 설명: text-lg text-white/90 max-w-2xl leading-[1.65] drop-shadow-md
-  - CTA 2개 (가운데 정렬):
-    - Primary: bg-[#B8935F] text-white border-[#B8935F] rounded-full px-9 py-6 shadow-lg hover:shadow-xl
-    - Secondary: bg-white/10 backdrop-blur-md text-white border-white/30 rounded-full px-9 py-6
-  - Trust 인디케이터 중앙 정렬:
-    - 컨테이너: flex flex-col items-center gap-3 group cursor-pointer
-    - 아이콘 박스: w-14 h-14 bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl shadow-lg transition-all duration-300 group-hover:bg-white/30 group-hover:-translate-y-1
+  - Badge: bg-white/10 backdrop-blur-md text-[#F5F3F0] border border-white/20 rounded-full px-5 py-2 text-sm font-medium
+  - 타이틀: text-[48px] md:text-[64px] font-bold leading-[1.2] tracking-tight drop-shadow-md (text-white + text-[#D1B075])
+  - 설명: text-lg text-white/90 font-medium leading-[1.65] max-w-2xl mx-auto drop-shadow-md
+  - CTA 2개 (flex flex-col sm:flex-row justify-center gap-4):
+    - Primary: bg-[#B8935F] text-white shadow-lg hover:shadow-xl hover:bg-[#A38568] rounded-full px-9 py-6 border border-[#B8935F]
+    - Secondary: bg-white/10 backdrop-blur-md border border-white/30 rounded-full px-9 py-6 text-white hover:bg-white/20 hover:shadow-md
+  - Trust 인디케이터 중앙 정렬 (grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4 sm:gap-10):
+    - 아이콘 박스: w-14 h-14 bg-[#2C2825]/50 backdrop-blur-md border border-white/10 rounded-2xl shadow-lg transition-all duration-300 group-hover:bg-[#2C2825]/70 group-hover:-translate-y-1
     - 아이콘 색상: text-[#D1B075] drop-shadow-sm
-    - 텍스트: text-sm font-bold text-white tracking-wide drop-shadow-md (어두운 배경 제거)
+    - 텍스트: text-sm font-bold text-white tracking-wide drop-shadow-md
 - 하단 페이드아웃 효과:
   - h-48 md:h-72 bg-gradient-to-t from-white to-transparent (다음 섹션으로 자연스러운 전환)
 ```
@@ -267,14 +274,15 @@ Footer:       bg-[#2C2825]
 ### 4.9 Footer
 ```
 - bg-[#2C2825] text-[#E8E5E1]
-- py-16
-- 4컬럼 그리드: md:grid-cols-4 gap-12
-  - 로고: text-white text-2xl font-bold
-  - 소셜 아이콘: w-10 h-10 rounded-full border border-[#B8935F]/20 hover:bg-[#B8935F]/20
-  - 링크: text-sm opacity-80 hover:text-[#B8935F]
-  - 섹션 제목: text-white font-semibold text-[15px]
-- 하단 바: pt-8 border-t border-[#B8935F]/10
-  - 저작권 + 법적 링크 text-sm opacity-70
+- py-10
+- 4컬럼 그리드: md:grid-cols-4 gap-8 md:gap-12 (container px-6)
+  - 로고: 헤더와 동일한 스타일 "MOKU" text-xl lg:text-2xl font-bold text-[#9E7030] tracking-tight mb-3
+  - 설명텍스트: text-xs opacity-80 leading-relaxed
+  - 소셜 아이콘: w-9 h-9 rounded-full border border-[#B8935F]/20 text-[#B8935F] hover:bg-[#B8935F]/20
+  - 링크메뉴 (사이트맵 등): text-sm opacity-80 hover:text-[#B8935F] transition-colors
+  - 섹션 제목: text-[#B8935F] font-semibold text-[15px] mb-1
+- 하단 바: mt-10 pt-6 border-t border-[#B8935F]/10 flex flex-col md:flex-row items-center justify-between gap-4
+  - 저작권 + 법적 링크: text-sm opacity-70 hover:text-[#B8935F]
 ```
 
 ### 4.10 Breadcrumb

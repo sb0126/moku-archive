@@ -1,6 +1,7 @@
 export interface CommentResponse {
   id: string;
   postId: string;
+  parentId?: string | null;
   author: string;
   content: string;
   createdAt: string;
@@ -11,6 +12,7 @@ export interface CommentCreateRequest {
   author: string;
   content: string;
   password: string;
+  parentId?: string | null;
 }
 
 export interface CommentUpdateRequest {

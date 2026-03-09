@@ -9,6 +9,7 @@ class CommentCreate(CamelModel):
     author: str = Field(min_length=1, max_length=50)
     content: str = Field(min_length=1, max_length=5000)
     password: str = Field(min_length=4, max_length=50)
+    parent_id: str | None = None
 
 
 class CommentUpdate(CamelModel):
@@ -19,6 +20,7 @@ class CommentUpdate(CamelModel):
 class CommentResponse(CamelModel):
     id: str
     post_id: str
+    parent_id: str | None = None
     author: str
     content: str
     created_at: datetime

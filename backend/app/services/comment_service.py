@@ -47,6 +47,7 @@ def _to_response(comment: Comment) -> CommentResponse:
     return CommentResponse(
         id=comment.id,
         post_id=comment.post_id,
+        parent_id=comment.parent_id,
         author=comment.author,
         content=comment.content,
         created_at=comment.created_at,
@@ -113,6 +114,7 @@ async def create_comment(
     comment = Comment(
         id=_generate_id(),
         post_id=post_id,
+        parent_id=body.parent_id,
         author=author,
         content=content,
         password=hash_password(body.password),

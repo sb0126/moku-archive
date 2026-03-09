@@ -207,7 +207,11 @@ const ja = {
   "partners.list.partner2.desc": "パートナーの紹介文がここに入ります。",
   "partners.list.partner3.desc": "パートナーの紹介文がここに入ります。",
   "archive.title": "アーカイブ",
-  "archive.description": "韓国ワーキングホリデーの準備や現地生活に関する役立つ情報を発信します。"
+  "archive.description": "韓国ワーキングホリデーの準備や現地生活に関する役立つ情報を発信します。",
+  "sidenav.visaprocess": "プロセス",
+  "sidenav.archive": "アーカイブ",
+  "sidenav.faq": "FAQ",
+  "sidenav.inquiry": "お問い合わせ"
 };
 
 export default ja;

@@ -18,7 +18,7 @@ export function Hero() {
   ];
 
   return (
-    <section id="hero" className="relative py-32 md:py-48 flex items-center min-h-[85vh] bg-[#2C2825] overflow-hidden">
+    <section id="hero" className="relative min-h-[100dvh] pt-24 pb-24 lg:pt-32 lg:pb-36 flex flex-col justify-center bg-[#2C2825] overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -71,10 +71,10 @@ export function Hero() {
           </FadeInSection>
 
           <FadeInSection delay={500} direction="up">
-            <div className="flex flex-wrap justify-center gap-6 sm:gap-10 w-full mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 justify-items-center gap-y-8 gap-x-4 sm:gap-10 w-full mt-8 max-w-3xl mx-auto">
               {trustItems.map((item, idx) => (
                 <div key={idx} className="flex flex-col items-center gap-3 group cursor-pointer">
-                  <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-white/30 transition-all duration-300 group-hover:bg-white/30 group-hover:-translate-y-1">
+                  <div className="w-14 h-14 bg-[#2C2825]/50 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-white/10 transition-all duration-300 group-hover:bg-[#2C2825]/70 group-hover:-translate-y-1">
                     <item.icon className="w-6 h-6 text-[#D1B075] drop-shadow-sm" />
                   </div>
                   <span className="text-sm font-bold text-white tracking-wide drop-shadow-md">{item.label}</span>

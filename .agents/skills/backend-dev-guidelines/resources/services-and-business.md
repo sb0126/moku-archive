@@ -8,9 +8,26 @@ The service layer encapsulates **all business logic**, keeping routers thin and 
 
 1. **Services are framework-agnostic** — No FastAPI imports (`Request`, `HTTPException`, `Depends`)
 2. **Services receive `AsyncSession` as parameter** — Not via Depends()
-3. **Services raise domain exceptions** — Routers translate to HTTP errors
+3. **Services raise `DomainError`** — Centralized exception hierarchy in `exceptions.py`
 4. **Services are stateless** — No mutable module-level state
 5. **One service per domain** — `post_service.py`, `comment_service.py`, etc.
+
+## Exception Hierarchy (Centralized)
+
+All domain errors derive from `DomainError` — defined once in `services/exceptions.py`:
+
+```python
+from app.services.exceptions import (
+    DomainError,       # base (400)
+    NotFoundError,     # 404
+    ForbiddenError,    # 403
+    ConflictError,     # 409
+    ValidationError,   # 400
+    SpamDetectedError, # 400
+)
+```
+
+**Key Difference from Previous:** No per-service exception classes. Use the centralized hierarchy.
 
 ## Pattern: Functional Services (Recommended for this project)
 
@@ -26,16 +43,13 @@ from sqlmodel import col
 from app.models import Post, PostLike
 from app.schemas import PostCreate, PostCreateResponse, PostResponse
 from app.services.auth import hash_password
+from app.services.exceptions import NotFoundError, SpamDetectedError, ValidationError
 from app.services.sanitize import sanitize_text
 from app.services.spam import check_spam
 
 
-class PostValidationError(Exception):
-    """Raised when post validation fails."""
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(message)
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _generate_id() -> str:
@@ -56,6 +70,7 @@ def _to_response(post: Post, *, like_count: int = 0) -> PostResponse:
         pinned_at=post.pinned_at,
         experience=post.experience,
         category=post.category,
+        like_count=like_count,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
@@ -69,19 +84,19 @@ async def create(session: AsyncSession, body: PostCreate) -> PostCreateResponse:
     content = sanitize_text(body.content)
 
     if not author or not title or not content:
-        raise PostValidationError("入力内容が無効です")
+        raise ValidationError("入力内容が無効です")
 
     # Spam check
     spam_result = check_spam(f"{title} {content}")
     if spam_result.is_spam:
-        raise PostValidationError(spam_result.reason or "スパムが検出されました")
+        raise SpamDetectedError(spam_result.reason or "スパムが検出されました")
 
     # Generate numeric ID
     max_result = await session.execute(select(func.max(col(Post.numeric_id))))
     max_numeric: int | None = max_result.scalar_one_or_none()
     numeric_id = (max_numeric or 0) + 1
 
-    now = datetime.now(timezone.utc)
+    now = _utcnow()
     post = Post(
         id=_generate_id(),
         numeric_id=numeric_id,
@@ -109,11 +124,11 @@ async def create(session: AsyncSession, body: PostCreate) -> PostCreateResponse:
 
 
 async def get_or_404(session: AsyncSession, post_id: str) -> Post:
-    """Fetch a post by ID, raise if not found."""
+    """Fetch a post by ID, raise NotFoundError if missing."""
     result = await session.execute(select(Post).where(col(Post.id) == post_id))
     post: Post | None = result.scalar_one_or_none()
     if post is None:
-        raise PostValidationError("投稿が見つかりません", status_code=404)
+        raise NotFoundError("投稿が見つかりません")
     return post
 ```
 
@@ -129,7 +144,7 @@ from app.database import get_session
 from app.schemas import PostCreate, PostCreateResponse
 from app.services import limiter
 from app.services import post_service
-from app.services.post_service import PostValidationError
+from app.services.exceptions import DomainError
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -143,7 +158,7 @@ async def create_post(
 ) -> PostCreateResponse:
     try:
         return await post_service.create(session, body)
-    except PostValidationError as exc:
+    except DomainError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 ```
 
@@ -153,11 +168,30 @@ These services provide shared functionality across domains:
 
 | Service | Purpose | Pattern |
 |---------|---------|---------|
-| `auth.py` | JWT creation/verification, password hashing | Pure functions |
+| `auth.py` | JWT creation/verification, password hashing (bcrypt + legacy) | Pure + async functions |
+| `cache.py` | In-memory LRU cache (256 entries) + PostgreSQL JWT blacklist | Singleton + async functions |
+| `exceptions.py` | Centralized DomainError hierarchy | Exception classes |
 | `sanitize.py` | XSS prevention, text cleaning | Pure functions |
-| `spam.py` | Spam content detection | Pure functions |
-| `storage.py` | File storage (Supabase → Cloudflare R2) | Async functions |
-| `rate_limit.py` | SlowAPI limiter instance | Singleton |
+| `spam.py` | Spam content detection (URL flood, keywords, repetition) | Pure functions |
+| `storage.py` | Cloudflare R2 file upload/delete via aioboto3 | Async functions |
+| `rate_limit.py` | SlowAPI limiter instance (in-memory) | Singleton |
+
+### `services/__init__.py` re-exports:
+
+```python
+from app.services.auth import (
+    create_admin_token, decode_admin_token, get_token_remaining_seconds,
+    hash_password, needs_rehash, verify_admin_token,
+    verify_admin_token_async, verify_password,
+)
+from app.services.exceptions import (
+    ConflictError, DomainError, ForbiddenError,
+    NotFoundError, SpamDetectedError, ValidationError,
+)
+from app.services.rate_limit import limiter
+from app.services.sanitize import sanitize_text
+from app.services.spam import SpamCheckResult, check_spam
+```
 
 ## Anti-Patterns
 
@@ -169,13 +203,28 @@ async def create(session, body):
     if not body.title:
         raise HTTPException(400, "Title required")  # framework-coupled!
 
-# ✅ ALWAYS — Domain exception
-class PostValidationError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
-        self.message = message
-        self.status_code = status_code
+# ✅ ALWAYS — DomainError (centralized)
+from app.services.exceptions import ValidationError
 
 async def create(session, body):
     if not body.title:
-        raise PostValidationError("Title required")
+        raise ValidationError("Title required")
+```
+
+```python
+# ❌ NEVER — per-service exception classes
+class PostValidationError(Exception): ...  # don't create per-service errors
+
+# ✅ ALWAYS — use centralized hierarchy
+from app.services.exceptions import ValidationError, NotFoundError
+```
+
+```python
+# ❌ NEVER — timezone-aware datetime for DB storage
+now = datetime.now(timezone.utc)
+post = Post(created_at=now, ...)  # DBAPIError with asyncpg 0.30+
+
+# ✅ ALWAYS — strip tzinfo
+now = datetime.now(timezone.utc).replace(tzinfo=None)
+post = Post(created_at=now, ...)
 ```

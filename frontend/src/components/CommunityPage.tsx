@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Pin, MessageSquare, Eye, ThumbsUp, Clock, User, Search, Edit2, Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Pin, MessageSquare, Eye, ThumbsUp, Clock, User, Search, Edit2, Trash2, X, ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ja, ko } from "date-fns/locale";
 
@@ -59,6 +59,9 @@ export default function CommunityPage() {
   const [commentInput, setCommentInput] = useState("");
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentPassword, setCommentPassword] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
+  const [replyingTo, setReplyingTo] = useState<{ id: string, author: string } | null>(null);
 
   // -- State: Dialogs --
   const [isPostDialogOpen, setIsPostDialogOpen] = useState(false);
@@ -145,6 +148,8 @@ export default function CommunityPage() {
       // Apply comment results
       if (commentRes.success) {
         setDetailComments(commentRes.comments);
+        setReplyingTo(null);
+        setEditingCommentId(null);
       }
 
       // Apply like status results
@@ -204,15 +209,20 @@ export default function CommunityPage() {
         return;
     }
     try {
-        const res = await api.post<any>(`/api/posts/${postId}/comments`, {
+        const payload: any = {
             content: commentInput,
             author: commentAuthor,
             password: commentPassword
-        });
+        };
+        if (replyingTo) {
+            payload.parentId = replyingTo.id;
+        }
+        const res = await api.post<any>(`/api/posts/${postId}/comments`, payload);
         if (res.success) {
             toast.success(t("success.commentCreated", "Comment added"));
             setCommentInput("");
             setCommentPassword("");
+            setReplyingTo(null);
             setDetailComments([...detailComments, res.comment]);
             setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: res.commentCount } : p));
         }
@@ -253,6 +263,7 @@ export default function CommunityPage() {
                 setPosts(prev => prev.map(p => p.id === id ? { ...p, content: content! } : p));
             } else {
                 setDetailComments(prev => prev.map(c => c.id === id ? { ...c, content: content! } : c));
+                setEditingCommentId(null);
             }
         }
         setIsPasswordDialogOpen(false);
@@ -311,13 +322,24 @@ export default function CommunityPage() {
                       </SelectContent>
                   </Select>
                   <div className="relative flex-1">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Search 
+                          className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer hover:text-[#B8935F] transition-colors z-10" 
+                          onClick={() => {
+                              setSearch(searchInput);
+                              setPage(1);
+                          }}
+                      />
                       <Input 
                           placeholder={t("placeholder.search", "Search...")} 
                           className="pl-9" 
                           value={searchInput}
                           onChange={(e) => setSearchInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
+                          onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                  setSearch(searchInput);
+                                  setPage(1);
+                              }
+                          }}
                       />
                   </div>
               </div>
@@ -409,18 +431,18 @@ export default function CommunityPage() {
                                               </div>
                                               
                                               {/* Actions container */}
-                                              <div className="flex items-center justify-between mt-4">
+                                              <div className="flex items-center justify-center mt-6 mb-2 relative">
                                                   <Button 
                                                       variant={detailLiked ? "default" : "outline"} 
                                                       size="sm" 
-                                                      className="rounded-full shadow-sm hover:scale-105 transition-transform"
+                                                      className="rounded-full shadow-sm hover:scale-105 transition-transform px-6"
                                                       onClick={() => handleLikeToggle(post.id)}
                                                   >
                                                       <ThumbsUp className={`w-4 h-4 mr-2 ${detailLiked ? "fill-current" : ""}`} />
                                                       {t("action.like", "Like")} {postLikes > 0 && `(${postLikes})`}
                                                   </Button>
                                                   
-                                                  <div className="flex items-center gap-2">
+                                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
                                                           onClick={() => setPasswordTarget({ type: "post", action: "delete", id: post.id })}>
                                                           <Trash2 className="w-4 h-4 mr-1" />
@@ -439,28 +461,117 @@ export default function CommunityPage() {
                                                   <div className="bg-background rounded-xl p-4 border border-border/50 space-y-4 shadow-sm">
                                                       {/* Comment List */}
                                                       <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                                          {detailComments.map((comment, idx) => (
-                                                              <div key={comment.id} className={`group text-sm border border-[#2C2825]/6 rounded-lg p-4 bg-white ${idx !== 0 ? "mt-4" : ""}`}>
-                                                                  <div className="flex justify-between items-start mb-1.5">
-                                                                      <div className="font-semibold text-[#2C2825] flex items-center gap-2">
-                                                                          {comment.author}
-                                                                          <span className="text-xs font-normal text-[#6B6660]">{relativeTime(comment.createdAt)}</span>
-                                                                      </div>
-                                                                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-                                                                          onClick={() => setPasswordTarget({ type: "comment", action: "delete", id: comment.id })}>
-                                                                          <Trash2 className="w-3 h-3" />
-                                                                      </Button>
-                                                                  </div>
-                                                                  <p className="text-muted-foreground whitespace-pre-wrap">{comment.content}</p>
-                                                              </div>
-                                                          ))}
-                                                          {detailComments.length === 0 && (
+                                                          {detailComments.length === 0 ? (
                                                               <div className="text-center text-muted-foreground italic py-2 text-sm">{t("empty.comments", "No comments yet. Be the first!")}</div>
+                                                          ) : (
+                                                              (() => {
+                                                                  const rootComments: any[] = [];
+                                                                  const cMap = new Map<string, any>();
+                                                                  detailComments.forEach(c => cMap.set(c.id, { ...c, children: [] }));
+                                                                  detailComments.forEach(c => {
+                                                                      if (c.parentId && cMap.has(c.parentId)) {
+                                                                          const parent = cMap.get(c.parentId);
+                                                                          cMap.get(c.id).parentAuthorName = parent.author;
+                                                                          parent.children.push(cMap.get(c.id));
+                                                                      } else {
+                                                                          rootComments.push(cMap.get(c.id));
+                                                                      }
+                                                                  });
+
+                                                                  const getFlattenedReplies = (node: any, isDirectReply: boolean = true): any[] => {
+                                                                      let result: any[] = [];
+                                                                      node.children.forEach((child: any) => {
+                                                                          child.isDirectReplyWrapper = isDirectReply;
+                                                                          result.push(child);
+                                                                          result = result.concat(getFlattenedReplies(child, false));
+                                                                      });
+                                                                      return result;
+                                                                  };
+
+                                                                  const renderCommentItem = (comment: any, isReply: boolean = false) => (
+                                                                      <div key={comment.id} className="group text-sm border border-[#2C2825]/6 rounded-lg p-4 bg-white relative shadow-sm">
+                                                                          {isReply && <CornerDownRight className="absolute -left-[1.35rem] top-4 w-4 h-4 text-primary/40" />}
+                                                                          <div className="flex justify-between items-start mb-1.5">
+                                                                              <div className="font-semibold text-[#2C2825] flex items-center gap-2">
+                                                                                  {comment.author}
+                                                                                  <span className="text-xs font-normal text-[#6B6660]">{relativeTime(comment.createdAt)}</span>
+                                                                              </div>
+                                                                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                  <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted" title={t("action.reply", "Reply")}
+                                                                                      onClick={() => {
+                                                                                          setReplyingTo({ id: comment.id, author: comment.author });
+                                                                                          setCommentInput(`@${comment.author} `);
+                                                                                          setTimeout(() => document.getElementById('comment-input')?.focus(), 50);
+                                                                                      }}>
+                                                                                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                                  </Button>
+                                                                                  <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted" title={t("action.edit", "Edit")}
+                                                                                      onClick={() => { setEditingCommentId(comment.id); setEditCommentContent(comment.content); }}>
+                                                                                      <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                                                                  </Button>
+                                                                                  <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive" title={t("action.delete", "Delete")}
+                                                                                      onClick={() => setPasswordTarget({ type: "comment", action: "delete", id: comment.id })}>
+                                                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                                                  </Button>
+                                                                              </div>
+                                                                          </div>
+                                                                          {editingCommentId === comment.id ? (
+                                                                              <div className="mt-2 space-y-2">
+                                                                                  <Textarea 
+                                                                                      value={editCommentContent} 
+                                                                                      onChange={(e) => setEditCommentContent(e.target.value)}
+                                                                                      className="min-h-[60px] resize-none text-sm"
+                                                                                  />
+                                                                                  <div className="flex justify-end gap-2 pr-1">
+                                                                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditingCommentId(null)}>
+                                                                                          {t("action.cancel", "Cancel")}
+                                                                                      </Button>
+                                                                                      <Button size="sm" className="h-7 text-xs" disabled={!editCommentContent.trim()} onClick={() => setPasswordTarget({ type: "comment", action: "edit", id: comment.id, content: editCommentContent })}>
+                                                                                          {t("action.save", "Save")}
+                                                                                      </Button>
+                                                                                  </div>
+                                                                              </div>
+                                                                          ) : (
+                                                                              <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                                                                  {comment.content}
+                                                                              </p>
+                                                                          )}
+                                                                      </div>
+                                                                  );
+
+                                                                  return rootComments.map(root => {
+                                                                      const flatReplies = getFlattenedReplies(root, true);
+                                                                      return (
+                                                                          <div key={root.id} className="mt-4 first:mt-0">
+                                                                              {renderCommentItem(root, false)}
+                                                                              {flatReplies.length > 0 && (
+                                                                                  <div className="ml-5 pl-4 mt-3 border-l-2 border-l-primary/15 space-y-3 relative">
+                                                                                      {flatReplies.map(reply => renderCommentItem(reply, true))}
+                                                                                  </div>
+                                                                              )}
+                                                                          </div>
+                                                                      );
+                                                                  });
+                                                              })()
                                                           )}
                                                       </div>
 
                                                       {/* Comment Input */}
                                                       <div className="pt-4 border-t border-border mt-4">
+                                                          {replyingTo && (
+                                                              <div className="flex items-center justify-between bg-primary/5 text-primary text-sm px-3 py-1.5 rounded-md mb-3 border border-primary/10">
+                                                                  <span className="flex items-center gap-1.5">
+                                                                      <CornerDownRight className="w-3.5 h-3.5" />
+                                                                      {t("label.replyingTo", "Replying to")} <strong>{replyingTo.author}</strong>
+                                                                  </span>
+                                                                  <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-primary/10 text-primary" onClick={() => {
+                                                                      setReplyingTo(null);
+                                                                      setCommentInput("");
+                                                                  }}>
+                                                                      <X className="w-3.5 h-3.5" />
+                                                                  </Button>
+                                                              </div>
+                                                          )}
                                                           <div className="flex flex-col sm:flex-row gap-3">
                                                               <Input 
                                                                   placeholder={t("placeholder.author", "Name")} 
@@ -476,6 +587,7 @@ export default function CommunityPage() {
                                                           </div>
                                                           <div className="flex gap-2 mt-3 text-sm">
                                                               <Textarea 
+                                                                  id="comment-input"
                                                                   placeholder={t("placeholder.comment", "Write a comment...")} 
                                                                   value={commentInput} onChange={e => setCommentInput(e.target.value)}
                                                                   className="min-h-[40px] h-[40px] resize-none py-2 shrink"

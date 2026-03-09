@@ -13,6 +13,12 @@
   --color-logo-gold: var(--logo-gold);
   --color-card: var(--card);
   --color-secondary: var(--secondary);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-footer-bg: var(--footer-bg);
   --color-footer-text: var(--footer-text);
   --color-text-body: var(--text-body);
@@ -39,6 +45,12 @@
     
     --card: #FFFFFF;
     --secondary: #F5F3F0;
+    --popover: #FFFFFF;
+    --popover-foreground: #2C2825;
+    --muted: #F5F3F0;
+    --muted-foreground: #6B6660;
+    --accent: #F5F3F0;
+    --accent-foreground: #2C2825;
     --footer-bg: #2C2825;
     --footer-text: #E8E5E1;
     

@@ -1,55 +1,76 @@
 # Error Handling
 
-## Exception Hierarchy
+## Exception Hierarchy (Centralized in `services/exceptions.py`)
 
 ```python
 # services/exceptions.py
 
-class AppError(Exception):
-    """Base exception for all application errors."""
-    def __init__(self, message: str, status_code: int = 400):
+class DomainError(Exception):
+    """Base exception for all domain-level errors."""
+    def __init__(self, message: str, *, status_code: int = 400) -> None:
         self.message = message
         self.status_code = status_code
         super().__init__(message)
 
 
-class NotFoundError(AppError):
-    """Resource not found."""
-    def __init__(self, message: str = "リソースが見つかりません"):
+class NotFoundError(DomainError):
+    """Raised when a requested resource does not exist."""
+    def __init__(self, message: str = "リソースが見つかりません") -> None:
         super().__init__(message, status_code=404)
 
 
-class ValidationError(AppError):
-    """Input validation failed."""
-    def __init__(self, message: str = "入力内容が無効です"):
+class ForbiddenError(DomainError):
+    """Raised when authentication succeeds but authorization fails."""
+    def __init__(self, message: str = "パスワードが正しくありません") -> None:
+        super().__init__(message, status_code=403)
+
+
+class ConflictError(DomainError):
+    """Raised when a unique-constraint would be violated."""
+    def __init__(self, message: str = "リソースが既に存在します") -> None:
+        super().__init__(message, status_code=409)
+
+
+class ValidationError(DomainError):
+    """Raised when input validation (beyond Pydantic) fails."""
+    def __init__(self, message: str = "入力内容が無効です") -> None:
         super().__init__(message, status_code=400)
 
 
-class AuthenticationError(AppError):
-    """Authentication failed."""
-    def __init__(self, message: str = "認証に失敗しました"):
-        super().__init__(message, status_code=401)
-
-
-class ForbiddenError(AppError):
-    """Access denied."""
-    def __init__(self, message: str = "アクセス権限がありません"):
-        super().__init__(message, status_code=403)
+class SpamDetectedError(DomainError):
+    """Raised when spam content is detected."""
+    def __init__(self, message: str = "スパムが検出されました") -> None:
+        super().__init__(message, status_code=400)
 ```
 
-## Global Exception Handler
+## Global Exception Handlers (in `main.py`)
+
+### Rate Limit Handler
 
 ```python
-# main.py
+from slowapi.errors import RateLimitExceeded
 
-from app.services.exceptions import AppError
-
-@app.exception_handler(AppError)
-async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
-    logger.warning("AppError: %s (status=%d, path=%s)", exc.message, exc.status_code, request.url.path)
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Return a JSON 429 with a Japanese message."""
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"success": False, "error": exc.message},
+        status_code=429,
+        content={"error": "リクエストが多すぎます。しばらくしてからもう一度お試しください。"},
+    )
+```
+
+### Unhandled Exception Handler (with Sentry)
+
+```python
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all for unhandled errors — log + forward to Sentry."""
+    import sentry_sdk
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    sentry_sdk.capture_exception(exc)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "内部サーバーエラーが発生しました。"},
     )
 ```
 
@@ -60,43 +81,54 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 ```python
 # ❌ NEVER
 try:
-    client.storage.from_(BUCKET).remove([path])
+    await storage.remove_files([path])
 except Exception:
     pass  # error silently lost!
 
 # ✅ ALWAYS — log then continue if non-critical
 try:
-    client.storage.from_(BUCKET).remove([path])
+    await storage.remove_files([path])
 except Exception:
     logger.exception("Failed to remove storage object: %s", path)
 ```
 
-### 2. Service Layer Raises Domain Exceptions
+### 2. Service Layer Raises DomainError (Not HTTPException)
 
 ```python
 # ❌ NEVER — HTTPException in service (framework-coupled)
+from fastapi import HTTPException
+
 async def get_post(session, post_id):
     post = await session.get(Post, post_id)
     if not post:
         raise HTTPException(404, "Not found")  # ← Bad!
 
 # ✅ ALWAYS — Domain exception
+from app.services.exceptions import NotFoundError
+
 async def get_post(session, post_id):
     post = await session.get(Post, post_id)
     if not post:
         raise NotFoundError("投稿が見つかりません")
 ```
 
-### 3. Router Translates Exceptions
+### 3. Router Translates DomainError to HTTP
 
 ```python
 @router.get("/{post_id}", response_model=PostResponse)
 async def get_post(post_id: str, session: AsyncSession = Depends(get_session)):
     try:
         return await post_service.get(session, post_id)
-    except AppError:
-        raise  # handled by global handler
+    except DomainError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 ```
+
+### 4. Sentry Integration for Errors
+
+- **5xx errors** → Captured by `unhandled_exception_handler` and forwarded to Sentry
+- **4xx errors** → Filtered out by `sentry.py::_before_send()` to avoid noise
+- **DomainError** → Suppressed in Sentry (`_before_send` returns `None`)
+- **HTTPException (4xx)** → Suppressed in Sentry
 
 ## Structured Logging
 
@@ -130,7 +162,6 @@ All error responses follow a consistent structure:
 
 ```json
 {
-    "success": false,
     "error": "エラーメッセージ"
 }
 ```
@@ -146,5 +177,13 @@ For validation errors (Pydantic):
             "type": "string_too_short"
         }
     ]
+}
+```
+
+For rate limiting:
+
+```json
+{
+    "error": "リクエストが多すぎます。しばらくしてからもう一度お試しください。"
 }
 ```

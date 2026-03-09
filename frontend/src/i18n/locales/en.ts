@@ -207,7 +207,11 @@ const en = {
   "partners.list.partner2.desc": "Partner description goes here.",
   "partners.list.partner3.desc": "Partner description goes here.",
   "archive.title": "Archive",
-  "archive.description": "Helpful information for working holiday preparation and local life in Korea."
+  "archive.description": "Helpful information for working holiday preparation and local life in Korea.",
+  "sidenav.visaprocess": "Process",
+  "sidenav.archive": "Archive",
+  "sidenav.faq": "FAQ",
+  "sidenav.inquiry": "Contact"
 };
 
 export default en;

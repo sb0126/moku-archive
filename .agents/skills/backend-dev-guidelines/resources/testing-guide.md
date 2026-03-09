@@ -5,22 +5,25 @@
 - **pytest** — Test runner
 - **pytest-asyncio** — Async test support
 - **httpx** — AsyncClient for API testing
-- **SQLite in-memory** — Fast, isolated DB for tests
+- **aiosqlite** — SQLite async driver for tests
+- **pytest-cov** — Coverage reporting
 
 ## Project Setup
 
 ```
 # requirements-dev.txt
+-r requirements.txt
 pytest>=8.0
 pytest-asyncio>=0.24
 httpx>=0.28
+aiosqlite>=0.20
+pytest-cov>=5.0
 ```
 
 ```ini
-# pyproject.toml or pytest.ini
-[tool:pytest]
+# pytest.ini
+[pytest]
 asyncio_mode = auto
-testpaths = ["tests"]
 ```
 
 ## Test Categories
@@ -74,6 +77,11 @@ async def client(test_session: AsyncSession):
 
     app.dependency_overrides.clear()
 ```
+
+### JSONB/SQLite Compatibility
+
+The `database.py` module registers a JSONB → JSON compiler for SQLite, so
+Article models with JSONB columns work in test environments automatically.
 
 ## Unit Tests (Services)
 
@@ -166,6 +174,21 @@ async def test_delete_post_wrong_password(client: AsyncClient):
         json={"password": "wrong"},
     )
     assert delete_resp.status_code == 403
+```
+
+### CamelCase Response Testing
+
+Response schemas use CamelModel, so JSON keys are camelCase:
+
+```python
+@pytest.mark.asyncio
+async def test_response_uses_camel_case(client: AsyncClient):
+    response = await client.post("/api/posts", json={...})
+    data = response.json()
+    # camelCase keys in response
+    assert "numericId" in data["post"]
+    assert "createdAt" in data["post"]
+    assert "commentCount" in data["post"] or "comments" in data["post"]
 ```
 
 ## Test Naming Convention

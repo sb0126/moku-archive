@@ -3,12 +3,14 @@
 ## Router Structure
 
 ```python
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.schemas import PostCreate, PostCreateResponse
-from app.services import post_service, limiter
+from app.services import limiter
+from app.services import post_service
+from app.services.exceptions import DomainError
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -21,7 +23,10 @@ async def create_post(
     session: AsyncSession = Depends(get_session),
 ) -> PostCreateResponse:
     """Create a new post."""
-    return await post_service.create(session, body)
+    try:
+        return await post_service.create(session, body)
+    except DomainError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 ```
 
 ## Rules
@@ -59,7 +64,10 @@ async def create_post(body: PostCreate, session: ...):
 # ✅ GOOD — delegate to service
 @router.post("", response_model=PostCreateResponse, status_code=201)
 async def create_post(body: PostCreate, session: ...):
-    return await post_service.create(session, body)
+    try:
+        return await post_service.create(session, body)
+    except DomainError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 ```
 
 ### 3. Use Correct HTTP Status Codes
@@ -80,14 +88,16 @@ from app.services import limiter
 
 @router.post("", ...)
 @limiter.limit("5/minute")   # ← required for mutation endpoints
-async def create(...):
+async def create(request: Request, ...):
     ...
 
 @router.get("", ...)
 @limiter.limit("30/minute")   # ← required for read endpoints
-async def list_items(...):
+async def list_items(request: Request, ...):
     ...
 ```
+
+**Important:** `request: Request` parameter is required for SlowAPI to work.
 
 ### 5. Path Parameter Naming
 
@@ -135,4 +145,28 @@ async def delete(
 ):
     if not is_admin:
         verify_ownership(body.password, ...)
+```
+
+### 8. DomainError → HTTPException Translation
+
+All routers should catch `DomainError` and translate to HTTP:
+
+```python
+try:
+    return await service.action(session, ...)
+except DomainError as exc:
+    raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+```
+
+### 9. Registered Routers
+
+All routers are registered in `main.py`:
+
+```python
+app.include_router(posts.router)      # /api/posts
+app.include_router(comments.router)   # /api/comments
+app.include_router(inquiries.router)  # /api/inquiries
+app.include_router(articles.router)   # /api/articles
+app.include_router(admin.router)      # /api/admin
+app.include_router(config.router)     # /api/config
 ```

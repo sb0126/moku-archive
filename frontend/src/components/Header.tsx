@@ -80,7 +80,7 @@ export function Header() {
         "h-16 lg:h-20 flex items-center"
       )}
     >
-      <div className="container mx-auto px-6 w-full flex items-center justify-between">
+      <div className={cn("container mx-auto px-6 w-full flex items-center justify-between transition-transform duration-300", !isScrolled && "lg:-translate-y-1.5")}>
         {/* Left: Logo */}
         <div className="flex flex-1 items-center justify-start">
           <Link href="/" className="text-xl lg:text-2xl font-bold text-[#9E7030] tracking-tight">
@@ -89,7 +89,7 @@ export function Header() {
         </div>
 
         {/* Center: Desktop Nav Links */}
-        <nav className="hidden md:flex items-center justify-center gap-8">
+        <nav className="hidden lg:flex items-center justify-center gap-5 xl:gap-8">
           {navLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== "/" && pathname?.startsWith(link.href));
             return (
@@ -108,7 +108,7 @@ export function Header() {
         </nav>
 
         {/* Right: Desktop Actions */}
-        <div className="hidden md:flex flex-1 items-center justify-end gap-4">
+        <div className="hidden lg:flex flex-1 items-center justify-end gap-3 xl:gap-4">
           <LanguageSwitcher />
           <Button asChild className="bg-[#B8935F] hover:bg-[#A38568] text-white rounded-full px-6 border-0 shrink-0">
             <Link href="/#inquiry">{t("header.consultation", "無料相談")}</Link>
@@ -116,7 +116,7 @@ export function Header() {
         </div>
 
         {/* Mobile Toggle */}
-        <div className="md:hidden flex flex-1 items-center justify-end gap-4">
+        <div className="lg:hidden flex flex-1 items-center justify-end gap-4">
           <LanguageSwitcher />
           <Button variant="ghost" size="icon" className="text-[#2C2825]" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -126,7 +126,7 @@ export function Header() {
 
       {/* Mobile Nav Overlay */}
       {isMobileMenuOpen && (
-        <div id="mobile-nav-overlay" className="md:hidden fixed inset-0 top-[64px] z-[40] bg-white/95 backdrop-blur-md flex flex-col p-6 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div id="mobile-nav-overlay" className="lg:hidden fixed inset-0 top-[64px] z-[40] bg-white/95 backdrop-blur-md flex flex-col p-6 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
           {navLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== "/" && pathname?.startsWith(link.href));
             return (

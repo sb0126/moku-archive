@@ -14,6 +14,18 @@ const SECTIONS = [
 export function SideNav() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<string>("");
+  const [showNav, setShowNav] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show SideNav after scrolling past ~50% of viewport height
+      setShowNav(window.scrollY > window.innerHeight * 0.5);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -43,7 +55,12 @@ export function SideNav() {
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[45] hidden lg:flex items-center gap-6 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border border-[#2C2825]/5">
+    <div 
+      className={cn(
+        "fixed bottom-8 left-1/2 -translate-x-1/2 z-[45] hidden lg:flex items-center gap-6 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border border-[#2C2825]/5 transition-all duration-500",
+        showNav ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8 pointer-events-none"
+      )}
+    >
       {SECTIONS.map((section) => {
         const isActive = activeSection === section.id;
         return (

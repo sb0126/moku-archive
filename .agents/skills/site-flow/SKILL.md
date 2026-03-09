@@ -4,11 +4,12 @@ description: "Complete site architecture, page flow, API endpoints, data models,
 risk: low
 source: custom
 date_added: "2026-03-09"
+date_updated: "2026-03-10"
 ---
 
 # Moku Archive — Site Flow & Architecture Reference
 
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-10
 
 A comprehensive reference for understanding the Moku Archive full-stack application — a Korean H-1 Working Holiday agency website with community, archive, and consultation features.
 
@@ -46,19 +47,22 @@ mokuarchive/
 │   └── package.json
 ├── backend/                   # FastAPI
 │   ├── app/
-│   │   ├── main.py            # App entry, lifespan, Alembic auto-migration
+│   │   ├── main.py            # App entry, lifespan, Sentry init
 │   │   ├── config.py          # pydantic-settings (env management)
-│   │   ├── database.py        # Async engine + session factory
+│   │   ├── database.py        # Async engine + session factory (URL sanitization)
 │   │   ├── dependencies.py    # FastAPI Depends (admin guards)
-│   │   ├── models/            # SQLModel table definitions
-│   │   ├── schemas/           # Pydantic request/response models
-│   │   ├── services/          # Business logic layer
+│   │   ├── sentry.py          # Sentry SDK init, event filtering, helpers
+│   │   ├── middleware/        # CacheHeaderMiddleware (Cache-Control by route)
+│   │   ├── models/            # SQLModel table definitions (+ TokenBlacklist)
+│   │   ├── schemas/           # Pydantic request/response models (CamelModel base)
+│   │   ├── services/          # Business logic + cache + exceptions + storage
 │   │   └── routers/           # HTTP layer (route handlers)
 │   ├── alembic/               # Alembic migrations
 │   │   ├── env.py             # Dynamic DB URL from settings
 │   │   └── versions/          # Migration scripts
 │   ├── alembic.ini
 │   ├── requirements.txt
+│   ├── requirements-dev.txt
 │   └── Dockerfile
 └── .agents/skills/            # Agent skill files
 ```
@@ -259,6 +263,7 @@ The homepage is a single-page scroll with section-based navigation via `SideNav`
 |--------|------|-------|
 | id | Text (PK) | |
 | post_id | Text (FK → posts.id) | |
+| parent_id | Text? (FK → comments.id) | Self-referential for nested replies |
 | author | Text | |
 | content | Text | |
 | password | Text | bcrypt hashed |
@@ -291,6 +296,13 @@ The homepage is a single-page scroll with section-based navigation via `SideNav`
 | admin_note | VARCHAR? | |
 | created_at | DateTime | |
 | updated_at | DateTime | |
+
+### token_blacklist
+| Column | Type | Notes |
+|--------|------|-------|
+| jti | VARCHAR(64) (PK) | JWT unique identifier |
+| expires_at | DateTime (TZ) | Token expiry for cleanup |
+| created_at | DateTime (TZ) | When the token was revoked |
 
 ---
 

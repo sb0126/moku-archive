@@ -207,7 +207,11 @@ const ko = {
   "partners.list.partner2.desc": "파트너에 대한 설명이 들어갑니다.",
   "partners.list.partner3.desc": "파트너에 대한 설명이 들어갑니다.",
   "archive.title": "아카이브",
-  "archive.description": "한국 워킹홀리데이 준비와 현지 생활에 유용한 정보를 전해드립니다."
+  "archive.description": "한국 워킹홀리데이 준비와 현지 생활에 유용한 정보를 전해드립니다.",
+  "sidenav.visaprocess": "프로세스",
+  "sidenav.archive": "아카이브",
+  "sidenav.faq": "FAQ",
+  "sidenav.inquiry": "문의사항"
 };
 
 export default ko;
