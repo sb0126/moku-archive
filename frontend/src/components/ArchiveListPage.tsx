@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -10,14 +10,28 @@ import { ArticleResponse } from "@/types/article";
 
 export default function ArchiveListPage({ articles }: { articles: ArticleResponse[] }) {
   const { t, i18n } = useTranslation();
-  const lang = i18n.language === "ko" ? "ko" : "ja";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const lang = mounted && i18n.language === "ko" ? "ko" : "ja";
+
+  const formatDate = (dateString: string | Date) => {
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
+  };
 
   return (
     <>
       <div className="mb-12 mt-4 text-center space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight text-[#2C2825]">{t("archive.title", "Archive")}</h1>
+        <h1 className="text-4xl font-bold tracking-tight text-[#2C2825]">{t("archive.title", "Archive", { lng: mounted ? i18n.language : "ja" })}</h1>
         <p className="text-xl text-[#6B6660] max-w-3xl mx-auto break-keep">
-          {t("archive.description", "Helpful information for working holiday preparation and local life in Korea.")}
+          {t("archive.description", "Helpful information for working holiday preparation and local life in Korea.", { lng: mounted ? i18n.language : "ja" })}
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -59,7 +73,7 @@ export default function ArchiveListPage({ articles }: { articles: ArticleRespons
                   {article.date && (
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
-                      {new Date(article.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "ja-JP")}
+                      {formatDate(article.date)}
                     </span>
                   )}
                   {localeData.readTime && (

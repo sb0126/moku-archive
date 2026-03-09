@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { FadeInSection } from "@/components/FadeInSection";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,27 @@ interface ArchiveListPreviewProps {
 export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
   const { t, i18n } = useTranslation();
   const [activeCategory, setActiveCategory] = useState("All");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const categories = ["All", "Guide", "Life", "News"];
 
   // A helper to get the title based on locale, fallback to ja
   const getArticleLocale = (article: ArticleResponse) => {
-    return i18n.language === "ko" && article.ko ? article.ko : article.ja;
+    // Only use client language after hydration to prevent mismatches
+    const lang = mounted ? i18n.language : "ja";
+    return lang === "ko" && article.ko ? article.ko : article.ja;
+  };
+
+  const formatDate = (dateString: string | Date) => {
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
   };
 
   const featuredArticle = articles.length > 0 ? articles[0] : null;
@@ -34,14 +49,15 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
         <FadeInSection>
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div>
-              <h2 className="text-[32px] md:text-[40px] font-bold tracking-tight text-[#2C2825] mb-4">
-                {t("preview.title", "Latest Guides & News")}
+              <h2 className="text-[32px] md:text-[40px] font-bold tracking-tight text-[#2C2825] mb-4" suppressHydrationWarning>
+                {t("preview.title", "Latest Guides & News", { lng: mounted ? i18n.language : "ja" })}
               </h2>
               <div className="flex gap-2 flex-wrap mt-6">
                 {categories.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
+                    suppressHydrationWarning
                     className={cn(
                       "px-5 py-1.5 rounded-full text-sm font-medium transition-colors border",
                       activeCategory === cat
@@ -49,7 +65,7 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
                         : "bg-[#FAFAF9] text-[#6B6660] border-[#2C2825]/10 hover:bg-[#F5F3F0]"
                     )}
                   >
-                    {t(`categories.${cat.toLowerCase()}`, cat)}
+                    {t(`categories.${cat.toLowerCase()}`, cat, { lng: mounted ? i18n.language : "ja" })}
                   </button>
                 ))}
               </div>
@@ -58,8 +74,8 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
         </FadeInSection>
 
         {articles.length === 0 ? (
-          <p className="text-center py-12 text-[#6B6660]">
-            {t("preview.empty", "No articles found.")}
+          <p className="text-center py-12 text-[#6B6660]" suppressHydrationWarning>
+            {t("preview.empty", "No articles found.", { lng: mounted ? i18n.language : "ja" })}
           </p>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8">
@@ -75,8 +91,8 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
                       className="object-cover transition-transform duration-700 group-hover:scale-105 filter brightness-[0.98] contrast-[0.95] saturate-[0.85]"
                       sizes="(max-width: 1024px) 100vw, 60vw"
                     />
-                    <div className="absolute top-4 left-4 bg-[#B8935F] text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md tracking-wider">
-                      {t("preview.featured", "注目記事")}
+                    <div className="absolute top-4 left-4 bg-[#B8935F] text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md tracking-wider" suppressHydrationWarning>
+                      {t("preview.featured", "注目記事", { lng: mounted ? i18n.language : "ja" })}
                     </div>
                   </div>
                   <div className="px-1">
@@ -119,7 +135,7 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
                         </h4>
                         <span className="text-xs text-[#6B6660] flex items-center">
                           <Clock className="w-3 h-3 mr-1" />
-                          {new Date(article.createdAt).toLocaleDateString()}
+                          {formatDate(article.createdAt)}
                         </span>
                       </div>
                     </Link>
@@ -132,8 +148,8 @@ export function ArchiveListPreview({ articles }: ArchiveListPreviewProps) {
 
         <FadeInSection delay={500} className="mt-14 flex justify-center">
           <Button asChild variant="outline" className="rounded-full px-10 py-6 h-auto text-[#2C2825] border-[#2C2825]/20 hover:bg-[#F5F3F0] font-medium transition-colors w-full sm:w-auto hover:text-[#B8935F]">
-            <Link href="/archive" className="flex items-center">
-              {t("preview.viewAll", "もっと見る")} <ArrowRight className="ml-2 h-4 w-4" />
+            <Link href="/archive" className="flex items-center" suppressHydrationWarning>
+              {t("preview.viewAll", "もっと見る", { lng: mounted ? i18n.language : "ja" })} <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
         </FadeInSection>

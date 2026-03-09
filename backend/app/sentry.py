@@ -40,11 +40,13 @@ def init_sentry() -> None:
 
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
-        environment=settings.sentry_environment,
-        release=f"moku-api@0.1.0",
-        traces_sample_rate=settings.sentry_traces_sample_rate,
-        profiles_sample_rate=settings.sentry_profiles_sample_rate,
-        send_default_pii=False,  # GDPR-safe: no IP, cookies, etc.
+        environment=settings.environment,
+        release="moku-api@0.1.0",
+        send_default_pii=True,
+        traces_sample_rate=1.0,
+        profile_session_sample_rate=1.0,
+        profile_lifecycle="trace",
+        enable_logs=True,
         integrations=[
             FastApiIntegration(transaction_style="endpoint"),
             StarletteIntegration(transaction_style="endpoint"),
@@ -58,10 +60,8 @@ def init_sentry() -> None:
         before_send=_before_send,
     )
     logger.info(
-        "✅ Sentry initialised (env=%s, traces=%.0f%%, profiles=%.0f%%)",
-        settings.sentry_environment,
-        settings.sentry_traces_sample_rate * 100,
-        settings.sentry_profiles_sample_rate * 100,
+        "✅ Sentry initialised (env=%s)",
+        settings.environment,
     )
 
 

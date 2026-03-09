@@ -8,12 +8,30 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    // Defer language switch until after hydration is complete
+    const savedLang = localStorage.getItem("moku_language");
+    if (savedLang && i18n.language !== savedLang) {
+      i18n.changeLanguage(savedLang).then(() => setMounted(true));
+    } else if (!savedLang) {
+      const browserLang = navigator.language.split('-')[0];
+      if (['ja', 'ko', 'en'].includes(browserLang) && i18n.language !== browserLang) {
+        i18n.changeLanguage(browserLang).then(() => {
+          localStorage.setItem("moku_language", browserLang);
+          setMounted(true);
+        });
+      } else {
+        setMounted(true);
+      }
+    } else {
+      setMounted(true);
+    }
   }, []);
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
-  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
+  return (
+    <I18nextProvider i18n={i18n}>
+      <div suppressHydrationWarning={!mounted}>
+        {children}
+      </div>
+    </I18nextProvider>
+  );
 }

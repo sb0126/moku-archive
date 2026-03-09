@@ -59,6 +59,8 @@ def _run_alembic_upgrade() -> None:
     # .strip() removes trailing newlines that some PaaS providers inject
     sync_url = settings.database_url.replace(
         "postgresql+asyncpg://", "postgresql://"
+    ).replace(
+        "sqlite+aiosqlite://", "sqlite://"
     ).strip()
     sync_engine = create_engine(sync_url)
 
@@ -131,8 +133,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             logger.debug("Blacklist cleanup skipped: %s", exc)
     else:
         # Log but do NOT raise — let the app start so the health-check passes.
-        logger.error(
-            "❌ Database connection failed after %d attempts. "
+        logger.warning(
+            "⚠️ Database connection failed after %d attempts. "
             "App will start but /api/ready will report unhealthy.",
             _DB_CONNECT_RETRIES,
         )
@@ -225,3 +227,13 @@ async def readiness_check() -> ReadinessResponse:
             status_code=503,
             detail="Database is unreachable",
         ) from exc
+
+
+# ── Sentry debug (test endpoint) ─────────────────────────────
+if settings.debug:
+
+    @app.get("/sentry-debug")
+    async def trigger_error() -> None:
+        """Intentional error to verify Sentry integration."""
+        division_by_zero = 1 / 0
+

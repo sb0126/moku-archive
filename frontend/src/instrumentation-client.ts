@@ -14,6 +14,19 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
 
   integrations: [Sentry.replayIntegration()],
+
+  // Filter out known third-party / browser-extension noise
+  beforeSend(event, hint) {
+    const error = hint?.originalException;
+    if (error instanceof Error) {
+      const msg = error.message || "";
+      // Browser extensions parsing JSON-LD structured data (NEXTJS-3)
+      if (msg.includes("@context") && msg.includes("toLowerCase")) {
+        return null;
+      }
+    }
+    return event;
+  },
 });
 
 // Hook into App Router navigation transitions

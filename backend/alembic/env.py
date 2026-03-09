@@ -21,6 +21,7 @@ if config.config_file_name is not None:
 # ── Import app settings & models ─────────────────────────────
 # Import settings to get the database URL dynamically
 from app.config import settings  # noqa: E402
+from app.database import _compile_jsonb_sqlite # noqa: E402, load compiler rules
 
 # Import all models so SQLModel.metadata is populated
 from app.models import *  # noqa: E402, F401, F403
@@ -34,6 +35,8 @@ target_metadata = SQLModel.metadata
 # Alembic runs synchronously, so we replace asyncpg → psycopg2
 _db_url = settings.database_url.replace(
     "postgresql+asyncpg://", "postgresql://"
+).replace(
+    "sqlite+aiosqlite://", "sqlite://"
 ).strip()
 config.set_main_option("sqlalchemy.url", _db_url)
 

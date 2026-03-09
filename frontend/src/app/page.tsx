@@ -38,56 +38,56 @@ export default async function HomePage() {
 
   const generateJsonLd = () => {
     return {
-      __html: JSON.stringify([
-        {
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          "name": "Moku",
-          "url": "https://moku.com",
-          "logo": "https://moku.com/logo.png",
-          "description": "Professional agency for Korea H-1 Working Holiday visa.",
-          "contactPoint": {
-            "@type": "ContactPoint",
-            "contactType": "customer service",
-            "availableLanguage": ["Japanese", "Korean", "English"]
-          }
-        },
-        {
-          "@context": "https://schema.org",
-          "@type": "ProfessionalService",
-          "name": "Moku Visa Consultation",
-          "image": "https://moku.com/logo.png",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Seoul",
-            "addressCountry": "KR"
-          },
-          "url": "https://moku.com",
-          "telephone": "+82-10-0000-0000"
-        },
-        {
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "Am I eligible for the H-1 visa?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "You must be a citizen of a country that has a Working Holiday agreement with South Korea, typically between the ages of 18 and 30, and without dependents."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "How long does the application process take?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Typically, document preparation takes 1-2 weeks, and the embassy processing takes another 1-2 weeks. The entire process takes about a month."
-              }
+      __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "Moku",
+            "url": "https://moku.com",
+            "logo": "https://moku.com/logo.png",
+            "description": "Professional agency for Korea H-1 Working Holiday visa.",
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer service",
+              "availableLanguage": ["Japanese", "Korean", "English"]
             }
-          ]
-        }
-      ])
+          },
+          {
+            "@type": "ProfessionalService",
+            "name": "Moku Visa Consultation",
+            "image": "https://moku.com/logo.png",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Seoul",
+              "addressCountry": "KR"
+            },
+            "url": "https://moku.com",
+            "telephone": "+82-10-0000-0000"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Am I eligible for the H-1 visa?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "You must be a citizen of a country that has a Working Holiday agreement with South Korea, typically between the ages of 18 and 30, and without dependents."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How long does the application process take?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Typically, document preparation takes 1-2 weeks, and the embassy processing takes another 1-2 weeks. The entire process takes about a month."
+                }
+              }
+            ]
+          }
+        ]
+      })
     };
   };
 

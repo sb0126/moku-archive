@@ -16,6 +16,13 @@ import re
 from collections.abc import AsyncGenerator
 from urllib.parse import urlparse, urlunparse
 
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_: JSONB, compiler: object, **kw: object) -> str:
+    return "JSON"
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -32,11 +39,14 @@ _DEFAULT_PG_PORT = 5432
 
 def _sanitise_database_url(raw_url: str) -> str:
     """Ensure the database URL has a valid port (default 5432) and log it masked."""
+    if raw_url.startswith("sqlite"):
+        return raw_url
+
     parsed = urlparse(raw_url)
 
-    # Fix missing or empty port
+    # Fix missing or empty port for postgres URLs
     port = parsed.port
-    if port is None:
+    if port is None and parsed.scheme.startswith("postgres"):
         # urlparse returns None when port is absent or empty-string.
         # Reconstruct netloc with default port.
         # Also handle the edge-case where the raw URL contains ":<empty>/"

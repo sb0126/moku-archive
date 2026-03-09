@@ -66,10 +66,10 @@ export function Header() {
   }, [isMobileMenuOpen]);
 
   const navLinks = [
-    { href: "/archive", label: t("header.archive", "Archive") },
-    { href: "/community", label: t("header.community", "Community") },
-    { href: "/partners", label: t("header.partners", "Partners") },
-    { href: "/guideline", label: t("header.guideline", "Guideline") },
+    { href: "/archive", label: t("header.archive", "アーカイブ") },
+    { href: "/community", label: t("header.community", "コミュニティ") },
+    { href: "/partners", label: t("header.partners", "提携パートナー") },
+    { href: "/guideline", label: t("header.guideline", "ガイドライン") },
   ];
 
   return (
@@ -111,7 +111,7 @@ export function Header() {
         <div className="hidden md:flex flex-1 items-center justify-end gap-4">
           <LanguageSwitcher />
           <Button asChild className="bg-[#B8935F] hover:bg-[#A38568] text-white rounded-full px-6 border-0 shrink-0">
-            <Link href="/#inquiry">{t("header.consultation", "Consultation")}</Link>
+            <Link href="/#inquiry">{t("header.consultation", "無料相談")}</Link>
           </Button>
         </div>
 
@@ -146,7 +146,7 @@ export function Header() {
           <div className="mt-auto pb-8">
             <Button asChild className="w-full bg-[#B8935F] hover:bg-[#A38568] text-white rounded-full py-6 text-lg border-0">
               <Link href="/#inquiry" onClick={() => setIsMobileMenuOpen(false)}>
-                {t("header.consultation", "Consultation")}
+                {t("header.consultation", "無料相談")}
               </Link>
             </Button>
           </div>

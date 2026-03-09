@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "isomorphic-dompurify";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,13 @@ import { ArticleResponse } from "@/types/article";
 
 export default function ArchiveArticle({ article }: { article: ArticleResponse }) {
   const { t, i18n } = useTranslation();
-  const lang = i18n.language === "ko" ? "ko" : "ja";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const lang = mounted && i18n.language === "ko" ? "ko" : "ja";
 
   const localeData = (lang === "ko" && article.ko) ? article.ko : article.ja;
 
@@ -19,12 +25,12 @@ export default function ArchiveArticle({ article }: { article: ArticleResponse }
 
   const formattedDate = useMemo(() => {
     if (!article.date) return "";
-    return new Date(article.date).toLocaleDateString(lang === "ko" ? "ko-KR" : "ja-JP", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }, [article.date, lang]);
+    const d = new Date(article.date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}.${month}.${day}`;
+  }, [article.date]);
 
   return (
     <article className="max-w-4xl mx-auto py-8">
