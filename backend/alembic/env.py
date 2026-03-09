@@ -34,7 +34,7 @@ target_metadata = SQLModel.metadata
 # Alembic runs synchronously, so we replace asyncpg → psycopg2
 _db_url = settings.database_url.replace(
     "postgresql+asyncpg://", "postgresql://"
-)
+).strip()
 config.set_main_option("sqlalchemy.url", _db_url)
 
 

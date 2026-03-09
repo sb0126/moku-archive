@@ -51,9 +51,10 @@ def _run_alembic_upgrade() -> None:
     )
 
     # Build a sync URL for the inspection check
+    # .strip() removes trailing newlines that some PaaS providers inject
     sync_url = settings.database_url.replace(
         "postgresql+asyncpg://", "postgresql://"
-    )
+    ).strip()
     sync_engine = create_engine(sync_url)
 
     try:
