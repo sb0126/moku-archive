@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.common import CamelModel
 
 
-class ArticleLocaleInput(BaseModel):
+class ArticleLocaleInput(CamelModel):
     title: str = Field(min_length=1, max_length=200)
     category: str = Field(min_length=1, max_length=50)
     excerpt: str = Field(default="", max_length=500)
@@ -13,27 +15,24 @@ class ArticleLocaleInput(BaseModel):
     author: str = Field(default="", max_length=100)
     read_time: str = Field(default="", alias="readTime", max_length=20)
     tags: list[str] = Field(default_factory=list)
-    model_config = {"populate_by_name": True}
 
 
-class ArticleCreate(BaseModel):
+class ArticleCreate(CamelModel):
     id: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9\-]+$")
     ja: ArticleLocaleInput
     ko: ArticleLocaleInput | None = None
     image_url: str | None = Field(default=None, alias="imageUrl")
     date: str | None = None
-    model_config = {"populate_by_name": True}
 
 
-class ArticleUpdate(BaseModel):
+class ArticleUpdate(CamelModel):
     ja: ArticleLocaleInput | None = None
     ko: ArticleLocaleInput | None = None
     image_url: str | None = Field(default=None, alias="imageUrl")
     date: str | None = None
-    model_config = {"populate_by_name": True}
 
 
-class ArticleResponse(BaseModel):
+class ArticleResponse(CamelModel):
     id: str
     image_url: str | None
     image_url_raw: str | None = None
@@ -44,19 +43,20 @@ class ArticleResponse(BaseModel):
     updated_at: datetime
 
 
-class ArticleCreateResponse(BaseModel):
+class ArticleCreateResponse(CamelModel):
     success: bool = True
     message: str
     article: ArticleResponse
 
 
-class ArticleUpdateResponse(BaseModel):
+class ArticleUpdateResponse(CamelModel):
     success: bool = True
     message: str
     article: ArticleResponse
 
 
-class ArticleListResponse(BaseModel):
+class ArticleListResponse(CamelModel):
     success: bool = True
     articles: list[ArticleResponse]
     count: int
+

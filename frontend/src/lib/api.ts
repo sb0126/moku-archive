@@ -19,14 +19,43 @@ export class ApiError extends Error {
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
-  });
-  const data: unknown = await res.json();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...options.headers },
+      ...options,
+    });
+  } catch (networkErr: unknown) {
+    // Network failure (no response at all)
+    throw new ApiError("ネットワークエラーが発生しました", 0);
+  }
+
+  // Try to parse JSON; fall back to text if not JSON
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    const text = await res.text().catch(() => "");
+    if (!res.ok) throw new ApiError(`サーバーエラー (${res.status})`, res.status);
+    return text as unknown as T;
+  }
+
   if (!res.ok) {
-    const err = data as { error?: string; detail?: string; details?: string };
-    throw new ApiError(err.error || err.detail || "Unknown error", res.status, err.details);
+    const err = data as {
+      error?: string;
+      detail?: string | Array<{ msg?: string; message?: string }>;
+      details?: string;
+    };
+    // FastAPI validation errors return detail as an array of objects
+    let message: string;
+    if (typeof err.detail === "string") {
+      message = err.detail;
+    } else if (Array.isArray(err.detail) && err.detail.length > 0) {
+      message = err.detail.map((d) => d.msg || d.message || JSON.stringify(d)).join(", ");
+    } else {
+      message = err.error || `エラーが発生しました (${res.status})`;
+    }
+    throw new ApiError(message, res.status, err.details);
   }
   return data as T;
 }

@@ -2,10 +2,12 @@ import re
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator
+
+from app.schemas.common import CamelModel
 
 
-class InquiryCreate(BaseModel):
+class InquiryCreate(CamelModel):
     name: str = Field(min_length=1, max_length=100)
     email: EmailStr
     phone: str = Field(min_length=10, max_length=20)
@@ -13,7 +15,6 @@ class InquiryCreate(BaseModel):
     preferred_date: str = Field(alias="preferredDate")
     plan: str = Field(min_length=1, max_length=50)
     message: str = Field(default="", max_length=2000)
-    model_config = {"populate_by_name": True}
 
     @field_validator("phone")
     @classmethod
@@ -25,7 +26,7 @@ class InquiryCreate(BaseModel):
         return v
 
 
-class InquiryResponse(BaseModel):
+class InquiryResponse(CamelModel):
     id: str
     name: str
     email: str
@@ -40,24 +41,25 @@ class InquiryResponse(BaseModel):
     updated_at: datetime
 
 
-class InquiryCreateResponse(BaseModel):
+class InquiryCreateResponse(CamelModel):
     success: bool = True
     message: str
     inquiry: InquiryResponse
 
 
-class InquiryStatusUpdateResponse(BaseModel):
+class InquiryStatusUpdateResponse(CamelModel):
     success: bool = True
     message: str
     inquiry: InquiryResponse
 
 
-class InquiryListResponse(BaseModel):
+class InquiryListResponse(CamelModel):
     success: bool = True
     inquiries: list[InquiryResponse]
     count: int
 
 
-class InquiryStatusUpdate(BaseModel):
+class InquiryStatusUpdate(CamelModel):
     status: Literal["pending", "contacted", "completed"]
     admin_note: str | None = None
+

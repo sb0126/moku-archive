@@ -2,7 +2,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.common import CamelModel
 
 
 class PostSortField(str, Enum):
@@ -25,7 +27,7 @@ class PostCategoryFilter(str, Enum):
     CHAT = "chat"
 
 
-class PostCreate(BaseModel):
+class PostCreate(CamelModel):
     author: str = Field(min_length=1, max_length=50)
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(min_length=1, max_length=10000)
@@ -34,13 +36,13 @@ class PostCreate(BaseModel):
     category: Optional[Literal["question", "info", "chat"]] = None
 
 
-class PostUpdate(BaseModel):
+class PostUpdate(CamelModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     content: Optional[str] = Field(default=None, min_length=1, max_length=10000)
     password: str = Field(min_length=4, max_length=50)
 
 
-class PostResponse(BaseModel):
+class PostResponse(CamelModel):
     id: str
     numeric_id: int
     title: str
@@ -56,7 +58,7 @@ class PostResponse(BaseModel):
     updated_at: datetime
 
 
-class PostListResponse(BaseModel):
+class PostListResponse(CamelModel):
     success: bool = True
     posts: list[PostResponse]
     count: int
@@ -66,64 +68,63 @@ class PostListResponse(BaseModel):
     limit: int
 
 
-class PostCreateResponse(BaseModel):
+class PostCreateResponse(CamelModel):
     success: bool = True
     message: str
     post: PostResponse
 
 
-class PostUpdateResponse(BaseModel):
+class PostUpdateResponse(CamelModel):
     success: bool = True
     message: str
     post: PostResponse
 
 
-class PostDeleteRequest(BaseModel):
+class PostDeleteRequest(CamelModel):
     password: str | None = None
 
 
-class PasswordVerifyRequest(BaseModel):
+class PasswordVerifyRequest(CamelModel):
     password: str = Field(min_length=1)
 
 
-class PasswordVerifyResponse(BaseModel):
+class PasswordVerifyResponse(CamelModel):
     success: bool = True
     verified: bool
 
 
-class LikeToggleRequest(BaseModel):
+class LikeToggleRequest(CamelModel):
     visitor_id: str = Field(alias="visitorId", min_length=8)
-    model_config = {"populate_by_name": True}
 
 
-class LikeResponse(BaseModel):
+class LikeResponse(CamelModel):
     success: bool = True
     liked: bool
     likes: int
 
 
-class LikeStatusResponse(BaseModel):
+class LikeStatusResponse(CamelModel):
     success: bool = True
     likes: int
     liked: bool
 
 
-class BulkLikesRequest(BaseModel):
+class BulkLikesRequest(CamelModel):
     post_ids: list[str] = Field(alias="postIds", max_length=100)
-    model_config = {"populate_by_name": True}
 
 
-class BulkLikesResponse(BaseModel):
+class BulkLikesResponse(CamelModel):
     success: bool = True
     likes: dict[str, int]
 
 
-class ViewIncrementResponse(BaseModel):
+class ViewIncrementResponse(CamelModel):
     success: bool = True
     views: int
 
 
-class PinToggleResponse(BaseModel):
+class PinToggleResponse(CamelModel):
     success: bool = True
     message: str
     post: PostResponse
+
