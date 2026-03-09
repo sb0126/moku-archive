@@ -40,12 +40,12 @@ COPY --chown=appuser:appgroup backend/ .
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8000
 
 # Built-in health check (used by Railway/Fly.io)
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/api/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
 
 # Single worker by default to prevent concurrent Alembic migration deadlocks.
 # Scale up by setting WEB_CONCURRENCY env var in Railway (e.g. WEB_CONCURRENCY=2).
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers ${WEB_CONCURRENCY:-1} --log-level info"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --log-level info"]
