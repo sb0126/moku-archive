@@ -81,7 +81,7 @@ async def create_inquiry(
             logger.warning("Spam detected in inquiry from %s: %s", name, spam_result.reason)
             raise SpamDetectedError(spam_result.reason or "スパムが検出されました")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     inquiry = Inquiry(
         id=_generate_id(),
         name=name,
@@ -133,7 +133,7 @@ async def update_inquiry_status(
     inquiry.status = body.status
     if body.admin_note is not None:
         inquiry.admin_note = body.admin_note
-    inquiry.updated_at = datetime.now(timezone.utc)
+    inquiry.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     session.add(inquiry)
     await session.commit()

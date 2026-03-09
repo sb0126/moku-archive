@@ -9,7 +9,7 @@ from sqlmodel import SQLModel, Field
 
 def _utcnow() -> datetime:
     """Timezone-aware UTC now — replaces deprecated datetime.utcnow()."""
-    return datetime.now(timezone.utc)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Comment(SQLModel, table=True):

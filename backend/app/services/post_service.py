@@ -227,7 +227,7 @@ async def create(session: AsyncSession, body: PostCreate) -> PostCreateResponse:
     max_numeric: int | None = max_id_result.scalar_one_or_none()
     numeric_id = (max_numeric or 0) + 1
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     post = Post(
         id=_generate_id(),
         numeric_id=numeric_id,
@@ -287,7 +287,7 @@ async def update_post(
             raise SpamDetectedError(spam_result.reason or "スパムが検出されました")
         post.content = sanitized_content
 
-    post.updated_at = datetime.now(timezone.utc)
+    post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.add(post)
     await session.commit()
     await session.refresh(post)
@@ -369,7 +369,7 @@ async def toggle_like(
         new_like = PostLike(
             post_id=post_id,
             visitor_id=body.visitor_id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         session.add(new_like)
         liked = True
@@ -447,10 +447,10 @@ async def toggle_pin(session: AsyncSession, post_id: str) -> PinToggleResponse:
         message = "投稿のピン留めが解除されました"
     else:
         post.pinned = True
-        post.pinned_at = datetime.now(timezone.utc)
+        post.pinned_at = datetime.now(timezone.utc).replace(tzinfo=None)
         message = "投稿がピン留めされました"
 
-    post.updated_at = datetime.now(timezone.utc)
+    post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.add(post)
     await session.commit()
     await session.refresh(post)

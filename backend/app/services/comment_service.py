@@ -109,7 +109,7 @@ async def create_comment(
         logger.warning("Spam detected in comment by %s on post %s", author, post_id)
         raise SpamDetectedError(spam_result.reason or "スパムが検出されました")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     comment = Comment(
         id=_generate_id(),
         post_id=post_id,
@@ -167,7 +167,7 @@ async def update_comment(
         raise SpamDetectedError(spam_result.reason or "スパムが検出されました")
 
     comment.content = sanitized_content
-    comment.updated_at = datetime.now(timezone.utc)
+    comment.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     session.add(comment)
     await session.commit()
@@ -201,7 +201,7 @@ async def delete_comment(
     post: Post | None = result.scalar_one_or_none()
     if post is not None:
         post.comment_count = max(0, post.comment_count - 1)
-        post.updated_at = datetime.now(timezone.utc)
+        post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         session.add(post)
 
     await session.delete(comment)

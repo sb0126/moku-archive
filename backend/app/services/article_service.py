@@ -138,7 +138,7 @@ async def create_article(
     ja_data: dict[str, Any] = body.ja.model_dump(by_alias=True)
     ko_data: dict[str, Any] | None = body.ko.model_dump(by_alias=True) if body.ko else None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     article = Article(
         id=body.id,
         image_url=body.image_url,
