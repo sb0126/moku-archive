@@ -40,7 +40,7 @@ COPY --chown=appuser:appgroup backend/ .
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Built-in health check (used by Railway/Fly.io)
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
