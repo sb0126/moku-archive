@@ -1,4 +1,10 @@
-const API_BASE: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// On the client (browser), always use relative path so requests go through
+// Vercel's rewrite proxy (/api/* → Railway backend) and avoid CORS issues.
+// On the server (SSR/SSG), use the absolute backend URL directly.
+const API_BASE: string =
+  typeof window !== "undefined"
+    ? "" // relative path → Vercel rewrite handles routing to Railway
+    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 export class ApiError extends Error {
   public status: number;
