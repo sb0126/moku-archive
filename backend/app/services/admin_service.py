@@ -1,6 +1,7 @@
-"""Admin domain service — login, stats, image management business logic.
+"""Admin domain service — login, logout, stats, image management business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
+Stats are cached in Redis; logout blacklists the JWT.
 """
 
 import logging
@@ -19,7 +20,18 @@ from app.schemas import (
     ImageUploadResponse,
     SuccessResponse,
 )
-from app.services.auth import create_admin_token
+from app.services.auth import (
+    create_admin_token,
+    decode_admin_token,
+    get_token_remaining_seconds,
+)
+from app.services.cache import (
+    blacklist_token,
+    delete_cached,
+    get_cached,
+    invalidate_namespace,
+    set_cached,
+)
 from app.services.exceptions import DomainError, ForbiddenError, ValidationError
 from app.services.storage import ensure_bucket, remove_files, upload_file
 
@@ -44,6 +56,10 @@ _EXTENSION_MAP: dict[str, str] = {
     "image/svg+xml": ".svg",
 }
 
+_CACHE_NS = "admin"
+_STATS_KEY = "stats"
+_TTL_STATS = 120  # 2 minutes — stats are relatively expensive
+
 
 # ── public API ─────────────────────────────────────────────────
 
@@ -62,8 +78,35 @@ async def login(password: str) -> AdminLoginResponse:
     return AdminLoginResponse(token=token)
 
 
+async def logout(token: str) -> SuccessResponse:
+    """Invalidate an admin JWT by adding its jti to the Redis blacklist."""
+    payload = decode_admin_token(token)
+    if payload is None:
+        raise ForbiddenError("無効なトークンです")
+
+    jti = payload.get("jti")
+    if not jti:
+        # Legacy tokens without jti — can't blacklist, but still return success
+        logger.warning("Logout attempted with token missing jti claim")
+        return SuccessResponse(message="ログアウトしました")
+
+    remaining = get_token_remaining_seconds(token)
+    if remaining > 0:
+        await blacklist_token(jti, ttl_seconds=remaining)
+
+    logger.info("Admin logout successful (jti=%s)", jti)
+    return SuccessResponse(message="ログアウトしました")
+
+
 async def get_stats(session: AsyncSession) -> AdminStatsResponse:
-    """Aggregate dashboard statistics."""
+    """Aggregate dashboard statistics (cached)."""
+    # Try cache first
+    cached = await get_cached(_CACHE_NS, _STATS_KEY)
+    if cached is not None:
+        logger.debug("Cache HIT: %s:%s", _CACHE_NS, _STATS_KEY)
+        return AdminStatsResponse(**cached)
+
+    # Cache miss — query DB
     total_inquiries: int = (
         await session.execute(select(func.count()).select_from(Inquiry))
     ).scalar_one()
@@ -113,8 +156,18 @@ async def get_stats(session: AsyncSession) -> AdminStatsResponse:
         total_views=total_views,
         total_comments=total_comments,
     )
-    logger.info("Admin stats retrieved: %s", stats.model_dump())
-    return AdminStatsResponse(stats=stats)
+    response = AdminStatsResponse(stats=stats)
+
+    # Populate cache
+    await set_cached(_CACHE_NS, _STATS_KEY, response.model_dump(), ttl_seconds=_TTL_STATS)
+    logger.debug("Cache SET: %s:%s", _CACHE_NS, _STATS_KEY)
+
+    return response
+
+
+async def invalidate_stats_cache() -> None:
+    """Invalidate the admin stats cache (call after data mutations)."""
+    await delete_cached(_CACHE_NS, _STATS_KEY)
 
 
 async def upload_image(

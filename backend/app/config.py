@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # ── Database ───────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://localhost:5432/moku"
 
+    # ── Redis (KV Store) ───────────────────────────────────────
+    redis_url: str = "redis://localhost:6379/0"
+
     # ── Cloudflare R2 ─────────────────────────────────────────
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""  # NEVER expose to frontend

@@ -1,6 +1,7 @@
 """Article domain service — all article-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
+Caches article list and detail responses in Redis.
 """
 
 import logging
@@ -20,10 +21,21 @@ from app.schemas import (
     ArticleUpdateResponse,
     SuccessResponse,
 )
+from app.services.cache import (
+    delete_cached,
+    get_cached,
+    invalidate_namespace,
+    set_cached,
+)
 from app.services.exceptions import ConflictError, NotFoundError
 from app.services.storage import remove_files, resolve_storage_url
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_CACHE_NS = "articles"
+_LIST_KEY = "all"
+_TTL_LIST = 300  # 5 minutes — articles change infrequently
+_TTL_DETAIL = 600  # 10 minutes
 
 
 # ── private helpers ────────────────────────────────────────────
@@ -65,7 +77,14 @@ def _resolve_url(image_url: str | None) -> str | None:
 
 
 async def list_articles(session: AsyncSession) -> ArticleListResponse:
-    """List all articles with resolved storage URLs."""
+    """List all articles with resolved storage URLs (cached)."""
+    # Try cache first
+    cached = await get_cached(_CACHE_NS, _LIST_KEY)
+    if cached is not None:
+        logger.debug("Cache HIT: %s:%s", _CACHE_NS, _LIST_KEY)
+        return ArticleListResponse(**cached)
+
+    # Cache miss — query DB
     result = await session.execute(
         select(Article).order_by(Article.created_at.desc())  # type: ignore[attr-defined]  # SQLModel column
     )
@@ -76,17 +95,34 @@ async def list_articles(session: AsyncSession) -> ArticleListResponse:
         resolved = _resolve_url(a.image_url)
         response_list.append(_to_response(a, resolved_url=resolved))
 
-    return ArticleListResponse(
+    response = ArticleListResponse(
         articles=response_list,
         count=len(response_list),
     )
 
+    # Populate cache
+    await set_cached(_CACHE_NS, _LIST_KEY, response.model_dump(), ttl_seconds=_TTL_LIST)
+    logger.debug("Cache SET: %s:%s", _CACHE_NS, _LIST_KEY)
+
+    return response
+
 
 async def get_article(session: AsyncSession, article_id: str) -> ArticleResponse:
-    """Get a single article by ID with resolved storage URL."""
+    """Get a single article by ID with resolved storage URL (cached)."""
+    cache_key = f"detail:{article_id}"
+    cached = await get_cached(_CACHE_NS, cache_key)
+    if cached is not None:
+        logger.debug("Cache HIT: %s:%s", _CACHE_NS, cache_key)
+        return ArticleResponse(**cached)
+
     article = await _get_or_404(session, article_id)
     resolved = _resolve_url(article.image_url)
-    return _to_response(article, resolved_url=resolved)
+    response = _to_response(article, resolved_url=resolved)
+
+    await set_cached(_CACHE_NS, cache_key, response.model_dump(), ttl_seconds=_TTL_DETAIL)
+    logger.debug("Cache SET: %s:%s", _CACHE_NS, cache_key)
+
+    return response
 
 
 async def create_article(
@@ -115,6 +151,9 @@ async def create_article(
     session.add(article)
     await session.commit()
     await session.refresh(article)
+
+    # Invalidate article caches
+    await invalidate_namespace(_CACHE_NS)
 
     logger.info("Article created: id=%s", article.id)
     return ArticleCreateResponse(
@@ -154,6 +193,9 @@ async def update_article(
     await session.commit()
     await session.refresh(article)
 
+    # Invalidate article caches (list + detail)
+    await invalidate_namespace(_CACHE_NS)
+
     logger.info("Article updated: id=%s", article_id)
     return ArticleUpdateResponse(
         message="記事が更新されました",
@@ -177,6 +219,9 @@ async def delete_article(session: AsyncSession, article_id: str) -> SuccessRespo
 
     await session.delete(article)
     await session.commit()
+
+    # Invalidate article caches
+    await invalidate_namespace(_CACHE_NS)
 
     logger.info("Article deleted: id=%s", article_id)
     return SuccessResponse(message="記事が削除されました")

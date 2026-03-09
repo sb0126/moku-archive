@@ -25,6 +25,7 @@ from app.models import *  # noqa: F401,F403  — register all table models with 
 from app.routers import admin, articles, comments, config, inquiries, posts
 from app.schemas.common import HealthResponse, ReadinessResponse
 from app.services import limiter
+from app.services.cache import close_redis, ping_redis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -122,9 +123,19 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             _DB_CONNECT_RETRIES,
         )
 
+    # Redis connectivity check (non-fatal)
+    redis_ok = await ping_redis()
+    if redis_ok:
+        logger.info("✅ Redis connection verified")
+    else:
+        logger.warning(
+            "⚠️ Redis is not reachable — caching & JWT blacklisting will be disabled"
+        )
+
     yield  # ← app is running
 
-    # Shutdown: dispose engine connection pool
+    # Shutdown: dispose engine + close Redis
+    await close_redis()
     await engine.dispose()
     logger.info("Database engine disposed")
 
@@ -160,7 +171,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With", "X-Admin-Token"],
 )
 
 

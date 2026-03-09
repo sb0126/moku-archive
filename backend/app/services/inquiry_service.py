@@ -1,6 +1,7 @@
 """Inquiry domain service — all inquiry-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
+Mutations invalidate the admin stats cache.
 """
 
 import logging
@@ -99,6 +100,10 @@ async def create_inquiry(
     await session.commit()
     await session.refresh(inquiry)
 
+    # Invalidate admin stats cache
+    from app.services.admin_service import invalidate_stats_cache
+    await invalidate_stats_cache()
+
     logger.info("Inquiry created: id=%s, name=%s", inquiry.id, name)
     return InquiryCreateResponse(
         message="お問い合わせが送信されました",
@@ -134,6 +139,10 @@ async def update_inquiry_status(
     await session.commit()
     await session.refresh(inquiry)
 
+    # Invalidate admin stats cache
+    from app.services.admin_service import invalidate_stats_cache
+    await invalidate_stats_cache()
+
     logger.info("Inquiry status updated: id=%s, status=%s", inquiry_id, body.status)
     return InquiryStatusUpdateResponse(
         message="ステータスが更新されました",
@@ -147,6 +156,10 @@ async def delete_inquiry(session: AsyncSession, inquiry_id: str) -> SuccessRespo
 
     await session.delete(inquiry)
     await session.commit()
+
+    # Invalidate admin stats cache
+    from app.services.admin_service import invalidate_stats_cache
+    await invalidate_stats_cache()
 
     logger.info("Inquiry deleted: id=%s", inquiry_id)
     return SuccessResponse(message="お問い合わせが削除されました")

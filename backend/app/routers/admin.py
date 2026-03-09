@@ -1,11 +1,11 @@
 """
 Admin router — /api/admin
 
-HTTP layer only: login, stats, image upload/delete.
+HTTP layer only: login, logout, stats, image upload/delete.
 Delegates to admin_service, translates exceptions.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -45,6 +45,25 @@ async def admin_login(
 ) -> AdminLoginResponse:
     try:
         return await admin_service.login(body.password)
+    except DomainError as exc:
+        _raise(exc)
+        raise
+
+
+# ═══════════════════════════════════════════════════════════════
+# POST /logout  — admin logout (blacklist JWT)
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.post("/logout", response_model=SuccessResponse)
+@limiter.limit("10/minute")
+async def admin_logout(
+    request: Request,
+    x_admin_token: str = Header(...),
+    _admin: bool = Depends(require_admin),
+) -> SuccessResponse:
+    try:
+        return await admin_service.logout(x_admin_token)
     except DomainError as exc:
         _raise(exc)
         raise

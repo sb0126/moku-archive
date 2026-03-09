@@ -1,6 +1,7 @@
 """Post domain service — all post-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
+List responses are cached in Redis; mutations invalidate caches.
 """
 
 import logging
@@ -34,6 +35,7 @@ from app.schemas import (
     ViewIncrementResponse,
 )
 from app.services.auth import hash_password, needs_rehash, verify_password
+from app.services.cache import get_cached, invalidate_namespace, set_cached
 from app.services.exceptions import (
     ForbiddenError,
     NotFoundError,
@@ -44,6 +46,9 @@ from app.services.sanitize import sanitize_text
 from app.services.spam import check_spam
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_CACHE_NS = "posts"
+_TTL_LIST = 60  # 1 minute — community posts change frequently
 
 
 # ── private helpers ────────────────────────────────────────────
@@ -87,6 +92,15 @@ async def _like_count(session: AsyncSession, post_id: str) -> int:
     return cnt
 
 
+async def _invalidate_posts_and_stats() -> None:
+    """Invalidate posts cache and admin stats cache after mutations."""
+    await invalidate_namespace(_CACHE_NS)
+    # Also invalidate admin stats since post count / views / comments changed
+    from app.services.admin_service import invalidate_stats_cache
+
+    await invalidate_stats_cache()
+
+
 # ── public API ─────────────────────────────────────────────────
 
 
@@ -100,7 +114,16 @@ async def list_posts(
     category: PostCategoryFilter | None = None,
     sort: PostSortField = PostSortField.NEWEST,
 ) -> PostListResponse:
-    """List posts with search, filtering, sorting, and pagination."""
+    """List posts with search, filtering, sorting, and pagination (cached)."""
+    # Build a deterministic cache key from query params
+    cache_key = f"list:{page}:{limit}:{search}:{search_type.value}:{category.value if category else ''}:{sort.value}"
+
+    cached = await get_cached(_CACHE_NS, cache_key)
+    if cached is not None:
+        logger.debug("Cache HIT: %s:%s", _CACHE_NS, cache_key)
+        return PostListResponse(**cached)
+
+    # Cache miss — build and execute query
     conditions: list[Any] = []
 
     if search:
@@ -169,7 +192,7 @@ async def list_posts(
     result = await session.execute(query)
     posts: list[Post] = list(result.scalars().all())
 
-    return PostListResponse(
+    response = PostListResponse(
         posts=[_to_response(p) for p in posts],
         count=len(posts),
         total=total,
@@ -177,6 +200,12 @@ async def list_posts(
         current_page=page,
         limit=limit,
     )
+
+    # Populate cache
+    await set_cached(_CACHE_NS, cache_key, response.model_dump(), ttl_seconds=_TTL_LIST)
+    logger.debug("Cache SET: %s:%s", _CACHE_NS, cache_key)
+
+    return response
 
 
 async def create(session: AsyncSession, body: PostCreate) -> PostCreateResponse:
@@ -219,6 +248,9 @@ async def create(session: AsyncSession, body: PostCreate) -> PostCreateResponse:
     await session.commit()
     await session.refresh(post)
 
+    # Invalidate caches
+    await _invalidate_posts_and_stats()
+
     logger.info("Post created: id=%s, author=%s", post.id, author)
     return PostCreateResponse(
         message="投稿が作成されました",
@@ -260,6 +292,9 @@ async def update_post(
     await session.commit()
     await session.refresh(post)
 
+    # Invalidate caches
+    await _invalidate_posts_and_stats()
+
     logger.info("Post updated: id=%s", post_id)
     return PostUpdateResponse(
         message="投稿が更新されました",
@@ -289,6 +324,9 @@ async def delete_post(
     await session.delete(post)
     await session.commit()
 
+    # Invalidate caches
+    await _invalidate_posts_and_stats()
+
     logger.info("Post deleted: id=%s, by_admin=%s", post_id, is_admin)
     return SuccessResponse(message="投稿が削除されました")
 
@@ -304,6 +342,8 @@ async def increment_view(session: AsyncSession, post_id: str) -> ViewIncrementRe
     )
     await session.commit()
     await session.refresh(post)
+
+    # Don't invalidate list cache for every view — TTL handles freshness
 
     return ViewIncrementResponse(views=post.views)
 
@@ -414,6 +454,9 @@ async def toggle_pin(session: AsyncSession, post_id: str) -> PinToggleResponse:
     session.add(post)
     await session.commit()
     await session.refresh(post)
+
+    # Pin changes affect list ordering
+    await _invalidate_posts_and_stats()
 
     logger.info("Post pin toggled: id=%s, pinned=%s", post_id, post.pinned)
     return PinToggleResponse(message=message, post=_to_response(post))

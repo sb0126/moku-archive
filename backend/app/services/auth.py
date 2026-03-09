@@ -1,4 +1,10 @@
+"""Authentication utilities — JWT, password hashing, and token blacklisting.
+
+All functions are framework-agnostic (no FastAPI imports).
+"""
+
 import hashlib
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -7,30 +13,84 @@ from jose import jwt, JWTError
 from app.config import settings
 
 
-# ── JWT ──
+# ── JWT ──────────────────────────────────────────────────────
 
 
 def create_admin_token() -> str:
+    """Create a signed JWT with a unique ``jti`` for blacklist support."""
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(hours=settings.jwt_expire_hours)
     payload: dict[str, str | datetime] = {
         "role": "admin",
-        "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours),
+        "jti": uuid.uuid4().hex,
+        "iat": now,
+        "exp": exp,
     }
-    encoded: str = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    encoded: str = jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
     return encoded
 
 
-def verify_admin_token(token: str) -> bool:
+def decode_admin_token(token: str) -> dict[str, str] | None:
+    """Decode a JWT and return the payload, or ``None`` on failure."""
     try:
         payload: dict[str, str] = jwt.decode(
             token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
         )
-        return payload.get("role") == "admin"
+        return payload
     except JWTError:
+        return None
+
+
+def verify_admin_token(token: str) -> bool:
+    """Verify that a token is a valid admin token (signature + role).
+
+    Note: This performs *synchronous* validation only (signature, expiry, role).
+    For blacklist checking, use ``verify_admin_token_async`` instead.
+    """
+    payload = decode_admin_token(token)
+    if payload is None:
+        return False
+    return payload.get("role") == "admin"
+
+
+async def verify_admin_token_async(token: str) -> bool:
+    """Verify an admin token AND check the JWT blacklist in Redis.
+
+    This is the preferred method for request-time token validation.
+    Falls back to signature-only validation if Redis is unavailable.
+    """
+    payload = decode_admin_token(token)
+    if payload is None:
+        return False
+    if payload.get("role") != "admin":
         return False
 
+    jti = payload.get("jti")
+    if jti:
+        from app.services.cache import is_token_blacklisted
 
-# ── Password ──
+        if await is_token_blacklisted(jti):
+            return False
+
+    return True
+
+
+def get_token_remaining_seconds(token: str) -> int:
+    """Return the number of seconds until a JWT expires (0 if already expired)."""
+    payload = decode_admin_token(token)
+    if payload is None:
+        return 0
+    exp = payload.get("exp")
+    if exp is None:
+        return 0
+    exp_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    remaining = (exp_dt - datetime.now(timezone.utc)).total_seconds()
+    return max(0, int(remaining))
+
+
+# ── Password ─────────────────────────────────────────────────
 
 
 def hash_password(password: str) -> str:
@@ -54,7 +114,9 @@ def verify_password(plain: str, stored_hash: str) -> bool:
         parts: list[str] = stored_hash.split(":")
         if len(parts) == 2:
             salt_hex, expected_hash = parts
-            computed: str = hashlib.sha256((salt_hex + plain).encode("utf-8")).hexdigest()
+            computed: str = hashlib.sha256(
+                (salt_hex + plain).encode("utf-8")
+            ).hexdigest()
             return computed == expected_hash
 
     return plain == stored_hash

@@ -1,6 +1,7 @@
 """Comment domain service — all comment-related business logic.
 
 Framework-agnostic: receives AsyncSession as a parameter, raises domain exceptions.
+Mutations invalidate post and admin stats caches.
 """
 
 import logging
@@ -129,6 +130,12 @@ async def create_comment(
     await session.refresh(comment)
     await session.refresh(post)
 
+    # Invalidate caches (comment count changed)
+    from app.services.cache import invalidate_namespace
+    from app.services.admin_service import invalidate_stats_cache
+    await invalidate_namespace("posts")
+    await invalidate_stats_cache()
+
     logger.info("Comment created: id=%s on post %s by %s", comment.id, post_id, author)
     return CommentCreateResponse(
         message="コメントが投稿されました",
@@ -199,6 +206,12 @@ async def delete_comment(
 
     await session.delete(comment)
     await session.commit()
+
+    # Invalidate caches (comment count changed)
+    from app.services.cache import invalidate_namespace
+    from app.services.admin_service import invalidate_stats_cache
+    await invalidate_namespace("posts")
+    await invalidate_stats_cache()
 
     logger.info("Comment deleted: id=%s, by_admin=%s", comment_id, is_admin)
     return SuccessResponse(message="コメントが削除されました")
